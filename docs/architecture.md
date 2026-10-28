@@ -1,0 +1,59 @@
+# Architecture
+
+Talo runs a React App Router UI and server routes through vinext on Cloudflare
+Workers. vinext implements Next.js APIs on Vite; this repository does not use the
+stock Next.js build runtime. The framework is under active development, so test
+production Worker output as well as the development server.
+
+## Current request path
+
+1. A local-only session endpoint signs a synthetic customer identity into an
+   HttpOnly cookie. Tenant membership comes from the server's fixture registry.
+2. The support route validates the request origin, cookie, and bounded JSON body.
+3. Case lookup checks both user and tenant before returning any case content.
+4. A deterministic response separates payment evidence, application access,
+   previous attempts, and a prepared handoff. Every source is labeled fixture.
+
+The fixture identity selector requires explicit demo mode and a loopback hostname.
+It is not production authentication. Sessions expire after eight hours. Private
+API responses use no-store. Provider errors are never echoed to the client.
+
+## Data and providers
+
+- Neon PostgreSQL is the selected application database. Drizzle defines users,
+  tenants, memberships, and memory-job records. The initial migration is generated
+  but has not been applied. Runtime support cases still come from fixtures.
+- Tatum's adapter uses fetch-based Sui gRPC-web with an API-key metadata header,
+  explicit field masks, and a deadline. Endpoint acceptance remains unverified.
+  Observations never claim invoice matching. Native grpc-js is not included.
+- The Walrus adapter uses the managed Mainnet relayer and a reserved synthetic
+  probe namespace. Submission and status reads are separate; only a completed
+  job with the expected namespace and blob reference is saved. No route exposes
+  memory writes in this checkpoint.
+- Local diagnostics require both explicit enablement and a separate token. SDK
+  import checks do not access providers. Live probes are read-only, and the CLI
+  requires --live to request them. Successful empty recall does not prove a write.
+
+Provider credentials stay in server-side configuration. There is no browser
+database access, model call, payment execution, or external ticket delivery.
+
+## Next integration steps
+
+Prove Tatum gRPC-web, Neon read-only queries, and authenticated Walrus recall from
+Workers. Then verify a synthetic write and recall across process restart. Add the
+durable Workflow and dispatch/reconciliation mechanism with idempotency before
+exposing memory writes to support requests. An accepted write is not completion.
+
+Production authentication, invoice attribution, memory eligibility checks, model
+tools, operator approvals, and background orchestration remain unimplemented.
+
+## Primary references
+
+- [Workers Next.js deployment](https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/)
+- [vinext](https://github.com/cloudflare/vinext)
+- [Neon driver](https://neon.com/docs/serverless/serverless-driver)
+- [Drizzle Neon connection](https://orm.drizzle.team/docs/connect-neon)
+- [Mysten gRPC transport](https://sdk.mystenlabs.com/sui/clients/grpc)
+- [Tatum Sui APIs](https://docs.tatum.io/reference/rpc-sui)
+- [Walrus Workers setup](https://docs.wal.app/walrus-memory/sdk/cloudflare-workers)
+- [Walrus SDK API](https://docs.wal.app/walrus-memory/sdk/api-reference)
