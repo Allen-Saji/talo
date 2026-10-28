@@ -3,6 +3,8 @@ import { loadLocalEnv } from "./local-env.mjs";
 loadLocalEnv();
 const selected = process.argv.find((argument) => argument.startsWith("--provider="))?.split("=")[1];
 if (selected && !["imports", "neon", "tatum", "walrus"].includes(selected)) throw new Error("Unknown provider.");
+const expectMemoryProbe = process.argv.includes("--expect-memory-probe");
+if (expectMemoryProbe && (selected !== "walrus" || !process.argv.includes("--live"))) throw new Error("Use --expect-memory-probe with --live --provider=walrus.");
 const origin = process.env.TALO_LOCAL_URL ?? "http://localhost:5173";
 if (!["localhost", "127.0.0.1", "[::1]"].includes(new URL(origin).hostname)) throw new Error("Use a local Workers URL.");
 if (!process.env.DIAGNOSTICS_TOKEN) {
@@ -26,5 +28,10 @@ if (!process.env.DIAGNOSTICS_TOKEN) {
     const result = await response.json();
     console.log(`${result.provider}: ${result.status} (${result.code})`);
     if (result.status === "failed") process.exitCode = 1;
+    if (expectMemoryProbe) {
+      const found = result.status === "passed" && result.details?.syntheticProbeFound === true;
+      console.log(`Workers synthetic-memory recall: ${found ? "passed" : "not verified"}`);
+      if (!found) process.exitCode = 1;
+    }
   }
 }

@@ -6,6 +6,7 @@ const schema = z.object({
   TALO_DIAGNOSTICS_ENABLED: z.string().optional().transform((value) => value === "true"),
   DATABASE_URL: secret, TATUM_API_KEY: secret, TATUM_TRANSACTION_DIGEST: secret,
   MEMWAL_PRIVATE_KEY: secret, MEMWAL_ACCOUNT_ID: secret,
+  MEMWAL_SERVER_URL: secret.pipe(z.literal("https://relayer.memory.walrus.xyz").optional()),
   SESSION_SECRET: secret, DIAGNOSTICS_TOKEN: secret,
 });
 export type Config = z.infer<typeof schema>;

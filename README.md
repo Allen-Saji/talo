@@ -76,6 +76,7 @@ Cloudflare secret separately when deploying the Worker.
 | `TATUM_TRANSACTION_DIGEST` | Known Mainnet transaction for a read-only probe |
 | `MEMWAL_PRIVATE_KEY` | Walrus Memory delegate key |
 | `MEMWAL_ACCOUNT_ID` | Corresponding Mainnet Memory account ID |
+| `MEMWAL_SERVER_URL` | Managed Mainnet relayer, `https://relayer.memory.walrus.xyz` |
 | `SESSION_SECRET` | At least 32 characters for local signed sessions |
 | `DIAGNOSTICS_TOKEN` | At least 32 characters for local diagnostic access |
 
@@ -93,6 +94,43 @@ The live checks run a Neon read-only batch, a Tatum gRPC-web transaction read, a
 an authenticated Walrus recall in a reserved synthetic namespace. Tatum transport
 acceptance is not yet established. Empty recall can verify authenticated access
 but does not prove memory persistence. No diagnostic endpoint uploads memories.
+
+### Walrus Memory setup
+
+In the [Walrus dashboard](https://memory.walrus.xyz/dashboard), select
+"Connect an app" and use the JavaScript SDK credentials. Put the account ID and
+delegate private key in ignored `.dev.vars` as `MEMWAL_ACCOUNT_ID` and
+`MEMWAL_PRIVATE_KEY`. Use the delegate key, not a wallet recovery phrase or the
+delegate public key. The SDK is already installed. Keep the private key on the
+server and out of chat, source control, and browser assets.
+
+After rebuilding/restarting the local Worker, test authenticated read access:
+
+```sh
+pnpm check:providers --live --provider=walrus
+```
+
+An empty successful recall proves access but does not prove stored memory. To
+test persistence explicitly, these commands write one synthetic Mainnet record
+in the reserved `talo-compatibility` namespace and verify it from a fresh process:
+
+```sh
+pnpm check:memory write
+pnpm check:memory verify
+pnpm check:providers --live --provider=walrus --expect-memory-probe
+```
+
+`write` retains its job reference in ignored `.wrangler/talo-memory-check.json`
+and uses a stable idempotency key. It does not write again when a reference is
+already present. `verify` checks completed status, namespace, blob reference,
+and an exact text/blob match on recall. Exit code 2 means the job is still
+submitted: rerun `verify`, rather than submitting another record. No check
+deletes memories. If you use port 5174, prefix commands with
+`TALO_LOCAL_URL=http://127.0.0.1:5174`.
+
+The support panel still uses seeded case history. These checks verify the SDK
+connection; production memory eligibility and durable dispatch/reconciliation
+must be implemented before support requests can save memories.
 
 ## Database
 

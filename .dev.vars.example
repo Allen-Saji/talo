@@ -8,6 +8,7 @@ DATABASE_URL=
 TATUM_API_KEY=
 MEMWAL_PRIVATE_KEY=
 MEMWAL_ACCOUNT_ID=
+MEMWAL_SERVER_URL=https://relayer.memory.walrus.xyz
 # Required only for a live Tatum transaction check. Use a known Mainnet digest.
 TATUM_TRANSACTION_DIGEST=
 # Generate locally: node -e "console.log(crypto.randomBytes(32).toString('hex'))"

@@ -38,6 +38,11 @@ API responses use no-store. Provider errors are never echoed to the client.
   probe namespace. Submission and status reads are separate; only a completed
   job with the expected namespace and blob reference is saved. No route exposes
   memory writes in this checkpoint.
+- The explicit `check:memory write` CLI can submit one synthetic setup record,
+  with a stable idempotency key and an ignored local job reference. A separate
+  `verify` process confirms completion and exact text/blob recall. The read-only
+  Workers probe reports whether that same synthetic record can be retrieved;
+  it never returns other memory contents or uploads data.
 - Local diagnostics require both explicit enablement and a separate token. SDK
   import checks do not access providers. Live probes are read-only, and the CLI
   requires --live to request them. Successful empty recall does not prove a write.
@@ -53,8 +58,9 @@ database access, model call, payment execution, or external ticket delivery.
 
 ## Next integration steps
 
-Prove Tatum gRPC-web and authenticated Walrus recall from Workers. Then verify a
-synthetic write and recall across process restart. Add the
+Prove Tatum gRPC-web and Walrus writes from Workers. Synthetic writes and
+fresh-process recall are covered by the explicit CLI checks; Workers diagnostics
+can verify reads of the same synthetic record. Add the
 durable Workflow and dispatch/reconciliation mechanism with idempotency before
 exposing memory writes to support requests. An accepted write is not completion.
 

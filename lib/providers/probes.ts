@@ -50,11 +50,15 @@ export async function runProbe(provider: ProbeName, config: Config): Promise<Pro
       return { provider, status: "passed", code: "GRPC_WEB_READ_OK", details: observation };
     }
     if (provider === "walrus") {
-      const { createMemoryClient } = await import("./memory");
+      const { createMemoryClient, memoryProbeText } = await import("./memory");
       const client = await createMemoryClient(config);
       const result = await client.recall({ query: "Talo compatibility probe", limit: 1, maxTokens: 200 });
       // A successful empty recall verifies authenticated access, not persistence.
-      return { provider, status: "passed", code: "AUTHENTICATED_RECALL_OK", details: { resultCount: result.results.length, writeVerified: false } };
+      return { provider, status: "passed", code: "AUTHENTICATED_RECALL_OK", details: {
+        resultCount: result.results.length,
+        syntheticProbeFound: result.results.some((item) => Boolean(item.blob_id) && item.text === memoryProbeText),
+        writeVerified: false,
+      } };
     }
     throw new Error("PROVIDER_NOT_CONFIGURED");
   } catch (error) { return { provider, status: "failed", code: failureCode(error) }; }
