@@ -42,8 +42,9 @@
     "typecheck": "tsc --noEmit",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv --include-runtime false",
     "setup:local": "node scripts/setup-local.mjs",
-    "check": "pnpm typecheck && pnpm build",
-    "db:generate": "drizzle-kit generate"
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "db:generate": "drizzle-kit generate",
+    "test": "vitest run"
   },
   "engines": {
     "node": ">=24.22.1 <25"
