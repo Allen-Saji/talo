@@ -1,7 +1,10 @@
 import { defineConfig } from "drizzle-kit";
+import { loadLocalEnv } from "./scripts/local-env.mjs";
+
+loadLocalEnv();
 
 export default defineConfig({
   dialect: "postgresql", schema: "./lib/db/schema.ts", out: "./drizzle",
-  // Schema generation needs no connection. Migration commands require DATABASE_URL.
-  ...(process.env.DATABASE_URL ? { dbCredentials: { url: process.env.DATABASE_URL } } : {}),
+  // Keep schema operations on the direct connection, outside the pooler.
+  ...(process.env.DATABASE_URL_UNPOOLED ? { dbCredentials: { url: process.env.DATABASE_URL_UNPOOLED } } : {}),
 });

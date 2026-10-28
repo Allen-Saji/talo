@@ -2,6 +2,8 @@
 # The local app works in fixture mode without provider credentials.
 TALO_DEMO_MODE=true
 TALO_DIAGNOSTICS_ENABLED=false
+# `neon deploy` downloads DATABASE_URL and DATABASE_URL_UNPOOLED to .env.local.
+# Vite syncs the pooled DATABASE_URL here before local dev/build.
 DATABASE_URL=
 TATUM_API_KEY=
 MEMWAL_PRIVATE_KEY=

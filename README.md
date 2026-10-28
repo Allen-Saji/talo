@@ -4,8 +4,9 @@ An embedded support assistant that remembers previous troubleshooting attempts,
 checks current facts, and prepares a useful handoff when an issue remains open.
 
 This repository currently provides a local fixture demonstration and Cloudflare
-Workers compatibility checks. Support replies are deterministic. Payment and
-memory records are synthetic; no model or live database is connected to support.
+Workers compatibility checks. Support replies are deterministic. Customers,
+payment evidence, and history are synthetic. When configured, Neon PostgreSQL
+stores the demo cases used by both support and billing. No model is connected.
 
 ## Run locally
 
@@ -60,9 +61,17 @@ diagnostic secrets. It preserves an existing file. Consult `.dev.vars.example`
 when adding provider settings locally. Never put credentials in client code,
 public variables, source control, or diagnostic output.
 
+Neon CLI writes its credentials into `.env.local`, or `.env` when that file
+already exists. On Vite startup/build, the app copies only `DATABASE_URL` into
+the ignored `.dev.vars` used by Workers. Other local settings are preserved.
+The direct migration URL stays in the Neon environment file. These files are
+local credentials, not deployment configuration; set `DATABASE_URL` as a
+Cloudflare secret separately when deploying the Worker.
+
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Neon PostgreSQL connection string |
+| `DATABASE_URL_UNPOOLED` | Direct Neon connection used only by schema migrations |
 | `TATUM_API_KEY` | Tatum gateway credential |
 | `TATUM_TRANSACTION_DIGEST` | Known Mainnet transaction for a read-only probe |
 | `MEMWAL_PRIVATE_KEY` | Walrus Memory delegate key |
@@ -76,6 +85,8 @@ output. Request read-only live checks explicitly:
 
 ```sh
 pnpm check:providers --live
+# Test only Neon when other providers are not configured:
+pnpm check:providers --live --provider=neon
 ```
 
 The live checks run a Neon read-only batch, a Tatum gRPC-web transaction read, and
@@ -85,22 +96,48 @@ but does not prove memory persistence. No diagnostic endpoint uploads memories.
 
 ## Database
 
-Drizzle defines tenants, users, memberships, and memory-job records. The initial
-SQL migration is generated under `drizzle/` and has not been applied to a live
-database. Support currently uses fixture records independently of this schema.
+Drizzle defines tenants, users, memberships, support cases, and memory-job records.
+Runtime queries use the existing Neon HTTP driver, which supports one-shot edge
+queries and batched transactions without a TCP pool. Migration commands use the
+direct connection with a WebSocket transaction.
+
+To connect a Neon project, authenticate with `neon login`, then run from the
+project root (replace the IDs with your own):
+
+```sh
+neon init -y --agent codex --package-manager pnpm --org-id <org-id> --project-id <project-id> --branch production --services postgres
+neon deploy
+```
+
+`neon.ts` manages Postgres only and preserves existing branch settings. Test
+migrations against a separate Neon branch before applying them to production.
+With `.neon` linked to the intended branch and credentials downloaded:
 
 ```sh
 pnpm db:generate
+pnpm db:migrate
+pnpm db:seed
+pnpm build
+pnpm start --port 5173 --ip 127.0.0.1
+# In another terminal:
+pnpm test:smoke --neon
 ```
 
-Generating migrations does not require database credentials. Applying migrations
-is a separate operation against an explicitly selected database.
+Generation needs no credentials. Migrations require `DATABASE_URL_UNPOOLED` and
+apply the checked-in SQL through Drizzle. Seeding inserts three synthetic cases
+and their users/tenants/memberships in one transaction, preserving existing rows.
+It does not create Walrus memories or verify any payment.
+
+Support and billing filter every case read by the signed session's user and
+tenant. Without `DATABASE_URL`, the local demo uses in-memory fixtures. When a
+database is configured, missing data returns 404 and database failures return a
+safe error; neither condition silently falls back to fixtures.
 
 ## Stack and deployment
 
 - React and TypeScript, using App Router conventions.
 - vinext and Vite, targeting Cloudflare Workers with Node compatibility enabled.
-- Neon and Drizzle for the planned application persistence layer.
+- Neon and Drizzle for application case persistence.
 - Mysten Sui gRPC-web and Walrus Memory behind server-side adapters.
 
 vinext reimplements Next.js APIs and is under active development. This app uses

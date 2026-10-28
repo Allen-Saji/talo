@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 import { requestJson } from "../../lib/client-http";
 
 export default function Billing() {
-  const [status, setStatus] = useState<{ invoiceId: string; entitlement: string } | null>(null);
+  const [status, setStatus] = useState<{ invoiceId: string; entitlement: string; storage: "neon" | "fixture" } | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
     let active = true;
-    void requestJson<{ invoiceId: string; entitlement: string }>("/api/billing").then((data) => {
+    void requestJson<{ invoiceId: string; entitlement: string; storage: "neon" | "fixture" }>("/api/billing").then((data) => {
       if (active) setStatus(data);
     }).catch((error: Error) => { if (active) setError(error.message); });
     return () => { active = false; };

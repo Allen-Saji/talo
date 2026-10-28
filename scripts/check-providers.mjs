@@ -1,6 +1,8 @@
-import { existsSync } from "node:fs";
+import { loadLocalEnv } from "./local-env.mjs";
 
-if (existsSync(".dev.vars")) process.loadEnvFile(".dev.vars");
+loadLocalEnv();
+const selected = process.argv.find((argument) => argument.startsWith("--provider="))?.split("=")[1];
+if (selected && !["imports", "neon", "tatum", "walrus"].includes(selected)) throw new Error("Unknown provider.");
 const origin = process.env.TALO_LOCAL_URL ?? "http://localhost:5173";
 if (!["localhost", "127.0.0.1", "[::1]"].includes(new URL(origin).hostname)) throw new Error("Use a local Workers URL.");
 if (!process.env.DIAGNOSTICS_TOKEN) {
@@ -13,6 +15,7 @@ if (!process.env.DIAGNOSTICS_TOKEN) {
   const data = await configuration.json();
   const live = process.argv.includes("--live");
   for (const item of data.providers) {
+    if (selected && item.provider !== selected) continue;
     if (item.provider !== "imports" && (!live || !item.configured)) {
       console.log(`${item.provider}: ${item.configured ? "configured; live check not requested" : "missing " + item.missing.join(", ")}`);
       if (live && !item.configured) process.exitCode = 1;

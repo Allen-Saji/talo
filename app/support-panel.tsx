@@ -53,7 +53,7 @@ export default function SupportPanel() {
         <p className="eyebrow">Talo / fixture response</p><h3>Here's where your case stands</h3><p>{answer.answer}</p>
         <dl><div><dt>Invoice</dt><dd>{answer.evidence.payment.invoiceId}</dd></div><div><dt>Payment</dt><dd>Matches (fixture)</dd></div><div><dt>App access</dt><dd>{answer.evidence.entitlement.status}</dd></div></dl>
         <h4>Previous attempts</h4><ul>{answer.attempts.map((attempt) => <li key={attempt}>{attempt}</li>)}</ul>
-        <p className="muted">Preference: {answer.preference} History is seeded locally; it has not been retrieved from Walrus.</p>
+        <p className="muted">Preference: {answer.preference} Case storage: {answer.storage === "neon" ? "Neon PostgreSQL" : "local fixtures"}. History is synthetic; it has not been retrieved from Walrus.</p>
         <a className="button secondary" href={answer.route.href}>{answer.route.label}</a>
         <details><summary>Prepared handoff</summary><p>{answer.handoff.summary}</p></details>
       </article>}

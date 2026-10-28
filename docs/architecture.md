@@ -11,8 +11,12 @@ production Worker output as well as the development server.
    HttpOnly cookie. Tenant membership comes from the server's fixture registry.
 2. The support route validates the request origin, cookie, and bounded JSON body.
 3. Case lookup checks both user and tenant before returning any case content.
-4. A deterministic response separates payment evidence, application access,
-   previous attempts, and a prepared handoff. Every source is labeled fixture.
+4. With `DATABASE_URL`, the support and billing routes query Neon for the owned
+   case. Otherwise the local demo uses in-memory fixtures. A configured database
+   failure never falls back to fixtures.
+5. A deterministic response separates payment evidence, application access,
+   previous attempts, and a prepared handoff. Evidence remains synthetic; the
+   response reports its case storage as `neon` or `fixture` separately.
 
 The fixture identity selector requires explicit demo mode and a loopback hostname.
 It is not production authentication. Sessions expire after eight hours. Private
@@ -21,8 +25,12 @@ API responses use no-store. Provider errors are never echoed to the client.
 ## Data and providers
 
 - Neon PostgreSQL is the selected application database. Drizzle defines users,
-  tenants, memberships, and memory-job records. The initial migration is generated
-  but has not been applied. Runtime support cases still come from fixtures.
+  tenants, memberships, support cases, and memory-job records. Cases reference a
+  user/tenant membership and every lookup filters both scope values. The seed
+  command inserts synthetic cases without overwriting existing records.
+  Runtime queries use Drizzle's Neon HTTP adapter. Drizzle migrations use a
+  direct connection and a WebSocket transaction. `neon.ts` preserves branch
+  settings and adds no Auth, Storage, Functions, or AI Gateway services.
 - Tatum's adapter uses fetch-based Sui gRPC-web with an API-key metadata header,
   explicit field masks, and a deadline. Endpoint acceptance remains unverified.
   Observations never claim invoice matching. Native grpc-js is not included.
@@ -34,13 +42,19 @@ API responses use no-store. Provider errors are never echoed to the client.
   import checks do not access providers. Live probes are read-only, and the CLI
   requires --live to request them. Successful empty recall does not prove a write.
 
+Neon CLI downloads credentials into `.env.local` (or existing `.env`). Vite
+startup/build synchronizes only the pooled runtime URL to ignored `.dev.vars`
+because Workers ignores `.env` when `.dev.vars` exists. The direct migration
+URL remains outside Worker bindings. Remote Worker deployment still needs a
+Cloudflare `DATABASE_URL` secret.
+
 Provider credentials stay in server-side configuration. There is no browser
 database access, model call, payment execution, or external ticket delivery.
 
 ## Next integration steps
 
-Prove Tatum gRPC-web, Neon read-only queries, and authenticated Walrus recall from
-Workers. Then verify a synthetic write and recall across process restart. Add the
+Prove Tatum gRPC-web and authenticated Walrus recall from Workers. Then verify a
+synthetic write and recall across process restart. Add the
 durable Workflow and dispatch/reconciliation mechanism with idempotency before
 exposing memory writes to support requests. An accepted write is not completion.
 

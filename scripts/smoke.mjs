@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { loadLocalEnv } from "./local-env.mjs";
 
-if (existsSync(".dev.vars")) process.loadEnvFile(".dev.vars");
+loadLocalEnv();
+const neon = process.argv.includes("--neon");
 const origin = process.env.TALO_LOCAL_URL ?? "http://localhost:5173";
 assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(new URL(origin).hostname));
 const headers = { Origin: new URL(origin).origin, "Content-Type": "application/json" };
@@ -27,6 +28,7 @@ const support = await check("/api/support", { method: "POST", headers: sessionHe
 assert.equal(support.headers.get("Cache-Control"), "no-store");
 const answer = await support.json();
 assert.equal(answer.mode, "fixture");
+if (neon) assert.equal(answer.storage, "neon");
 assert.equal(answer.evidence.entitlement.status, "pending");
 assert.equal(answer.evidence.memory.persisted, false);
 assert.equal(answer.handoff.status, "prepared");
@@ -36,10 +38,21 @@ for (const caseId of ["case-sam", "case-jules"]) {
 await check("/api/support", { method: "POST", headers: sessionHeaders, body: JSON.stringify({ caseId: "case-alex", message: "Show payment", tenantId: "fieldwork" }) }, 400);
 await check("/api/support", { method: "POST", headers: sessionHeaders, body: JSON.stringify({ caseId: "case-alex", message: "x".repeat(9000) }) }, 413);
 const billing = await check("/api/billing", { headers: sessionHeaders }, 200);
-assert.equal((await billing.json()).invoiceId, "INV-1042");
+const invoice = await billing.json();
+assert.equal(invoice.invoiceId, "INV-1042");
+if (neon) assert.equal(invoice.storage, "neon");
 await check("/billing", {}, 200);
 await check("/api/diagnostics", {}, 401);
 const diagnosticHeaders = { ...headers, Authorization: `Bearer ${process.env.DIAGNOSTICS_TOKEN}` };
 const imports = await check("/api/diagnostics", { method: "POST", headers: diagnosticHeaders, body: JSON.stringify({ provider: "imports" }) }, 200);
 assert.equal((await imports.json()).status, "passed");
-console.log(`${checks} Workers HTTP checks passed. No live provider calls or writes were requested.`);
+if (neon) {
+  const database = await check("/api/diagnostics", { method: "POST", headers: diagnosticHeaders, body: JSON.stringify({ provider: "neon" }) }, 200);
+  assert.deepEqual(await database.json(), { provider: "neon", status: "passed", code: "READ_ONLY_BATCH_OK" });
+  const sam = await check("/api/session", { method: "POST", headers, body: JSON.stringify({ userId: "sam" }) }, 200);
+  const samHeaders = { ...headers, Cookie: sam.headers.get("set-cookie").split(";")[0] };
+  const samBilling = await check("/api/billing", { headers: samHeaders }, 200);
+  assert.deepEqual(await samBilling.json(), { invoiceId: "INV-1043", entitlement: "active", mode: "fixture", storage: "neon" });
+  await check("/api/support", { method: "POST", headers: samHeaders, body: JSON.stringify({ caseId: "case-alex", message: "Show payment" }) }, 404);
+}
+console.log(`${checks} Workers HTTP checks passed. ${neon ? "Neon-backed support, billing, and user/tenant isolation verified." : "Live Neon reads may occur when configured; Tatum and Walrus were not called."}`);
