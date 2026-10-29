@@ -10,6 +10,7 @@
     "@mysten/walrus": "1.2.37",
     "@neon/config": "1.9.5",
     "@neon/env": "1.6.6",
+    "@neondatabase/auth": "0.7.0-beta",
     "@neondatabase/serverless": "1.2.0",
     "@vinext/cloudflare": "1.2.1",
     "drizzle-orm": "0.45.4",
@@ -53,7 +54,10 @@
     "db:seed": "tsx scripts/database.ts seed",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv --include-runtime false",
     "check": "pnpm typecheck && pnpm test && pnpm build",
-    "setup:local": "node scripts/setup-local.mjs"
+    "setup:local": "node scripts/setup-local.mjs",
+    "check:memory:jobs": "tsx scripts/check-memory-jobs.ts",
+    "check:memory:flow": "tsx scripts/check-memory-flow.ts",
+    "check:auth": "tsx scripts/check-public-auth.ts"
   },
   "engines": {
     "node": ">=24.22.1 <25"

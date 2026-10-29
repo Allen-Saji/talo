@@ -28,3 +28,10 @@ dt { color: #696371; font-size: 13px; } dd { margin: 4px 0; font-weight: 600; }
 details { margin-top: 24px; } summary { cursor: pointer; min-height: 44px; padding: 10px 0; font-weight: 600; }
 .error { color: #983d30; } li { margin-bottom: 8px; }
 @media (max-width: 600px) { .container { padding: 20px 16px 40px; } .intro { padding-top: 36px; } .support { padding: 20px; } dl { grid-template-columns: 1fr; gap: 10px; } }
+
+fieldset { margin: 24px 0; padding: 18px; border: 1px solid var(--border, #d5d8d2); border-radius: 12px; min-width: 0; }
+legend { padding: 0 6px; font-weight: 600; }
+.memory-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.memory-actions button { min-height: 44px; }
+
+input { width: 100%; min-height: 44px; box-sizing: border-box; padding: 12px; border: 1px solid #a4aaa3; border-radius: 8px; background: #fff; color: #18231c; font: inherit; }

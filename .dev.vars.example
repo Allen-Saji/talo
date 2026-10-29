@@ -15,3 +15,11 @@ TATUM_TRANSACTION_DIGEST=
 SESSION_SECRET=
 # Required for diagnostic API access when enabled.
 DIAGNOSTICS_TOKEN=
+
+# Optional OpenAI answer generation (server-only, gpt-6-luna).
+OPENAI_API_KEY=
+
+# Public email/password authentication. Local fixture mode is ignored when true.
+TALO_PUBLIC_AUTH=false
+NEON_AUTH_BASE_URL=
+NEON_AUTH_COOKIE_SECRET=

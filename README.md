@@ -3,10 +3,11 @@
 An embedded support assistant that remembers previous troubleshooting attempts,
 checks current facts, and prepares a useful handoff when an issue remains open.
 
-This repository currently provides a local fixture demonstration and Cloudflare
-Workers compatibility checks. Support replies are deterministic. Customers,
-payment evidence, and history are synthetic. When configured, Neon PostgreSQL
-stores the demo cases used by both support and billing. No model is connected.
+This repository provides a support demonstration with Neon case storage,
+Walrus preference memory, and optional OpenAI `gpt-6-luna` answers. Customers,
+payment evidence, and troubleshooting history remain synthetic. Model failures
+fall back to a deterministic answer. Tatum chain reads are verified separately;
+they do not establish that a transaction pays an invoice.
 
 ## Run locally
 
@@ -24,8 +25,37 @@ Open http://127.0.0.1:5173. Choose a demo customer and investigate the seeded ac
 issue. Alex and Sam belong to the same synthetic organization; Jules belongs to
 another. Each signed session can retrieve only its own case and billing record.
 
-The fixture selector is restricted to loopback hostnames and explicit demo mode.
-It is development authentication, not a production sign-in mechanism.
+For local fixture testing, leave `TALO_PUBLIC_AUTH=false`. The fixture selector
+is restricted to loopback hostnames and explicit demo mode. Public mode disables
+that selector and its identity-issuing endpoint, including on localhost.
+
+### Public sign-in
+
+`neon.ts` enables Managed Better Auth on the linked branch. Run `neon deploy`,
+then configure these server-only values in `.dev.vars`:
+
+- `TALO_PUBLIC_AUTH=true`
+- `NEON_AUTH_BASE_URL` from Neon (also synchronized during build)
+- `NEON_AUTH_COOKIE_SECRET`, a separately generated random value of at least 32 characters
+
+Configure email/password sign-up with email-code verification required, and
+allowlist the app's exact origin with `neon neon-auth domain add <origin>`.
+The UI offers Continue with Google first, with email/password signup, code
+verification/resend, password reset, and sign-out as alternatives. Google uses
+Neon shared OAuth credentials for hackathon testing and shows Neon branding;
+configure your own Google OAuth app before production. Root middleware exchanges
+Neon OAuth callback verifiers through the official SDK. Every protected API checks the managed session against the auth service
+without trusting the session-data cookie cache. Unverified users are rejected.
+
+Each verified identity receives a separate synthetic workspace and support case.
+Tenant, user, and case IDs are derived on the server; signup cannot select an
+existing customer or join another tenant. Account names are stored in Postgres;
+emails and passwords are handled by Neon Auth and are not sent to Walrus/OpenAI.
+
+The shared Neon email sender is suitable for hackathon testing. Configure your own
+SMTP sender before a production launch. Email-code delivery should be checked
+with an address you control; automated tests use reserved-domain accounts and do
+not prove delivery. See [Neon's checklist](https://neon.com/docs/auth/production-checklist).
 
 To test production output in the actual local Workers runtime:
 
@@ -43,9 +73,11 @@ changes. The Vite development server reloads changes automatically.
 pnpm typecheck
 pnpm test
 pnpm build
-# With the local Worker running in another terminal:
+# With a local fixture-mode Worker (TALO_PUBLIC_AUTH=false):
 pnpm test:smoke
 pnpm check:providers
+# With a public-auth preview:
+pnpm check:auth
 ```
 
 Unit tests cover session tampering and expiry, user/tenant isolation, request
@@ -62,7 +94,7 @@ when adding provider settings locally. Never put credentials in client code,
 public variables, source control, or diagnostic output.
 
 Neon CLI writes its credentials into `.env.local`, or `.env` when that file
-already exists. On Vite startup/build, the app copies only `DATABASE_URL` into
+already exists. On Vite startup/build, the app copies `DATABASE_URL` and `NEON_AUTH_BASE_URL` into
 the ignored `.dev.vars` used by Workers. Other local settings are preserved.
 The direct migration URL stays in the Neon environment file. These files are
 local credentials, not deployment configuration; set `DATABASE_URL` as a
@@ -77,6 +109,10 @@ Cloudflare secret separately when deploying the Worker.
 | `MEMWAL_PRIVATE_KEY` | Walrus Memory delegate key |
 | `MEMWAL_ACCOUNT_ID` | Corresponding Mainnet Memory account ID |
 | `MEMWAL_SERVER_URL` | Managed Mainnet relayer, `https://relayer.memory.walrus.xyz` |
+| `TALO_PUBLIC_AUTH` | Enable public Neon Auth; disables fixture identity issuance |
+| `NEON_AUTH_BASE_URL` | Managed authentication service URL |
+| `NEON_AUTH_COOKIE_SECRET` | Random server-only auth cookie signing secret |
+| `OPENAI_API_KEY` | Optional server-side OpenAI Responses credential |
 | `SESSION_SECRET` | At least 32 characters for local signed sessions |
 | `DIAGNOSTICS_TOKEN` | At least 32 characters for local diagnostic access |
 
@@ -128,9 +164,74 @@ submitted: rerun `verify`, rather than submitting another record. No check
 deletes memories. If you use port 5174, prefix commands with
 `TALO_LOCAL_URL=http://127.0.0.1:5174`.
 
-The support panel still uses seeded case history. These checks verify the SDK
-connection; production memory eligibility and durable dispatch/reconciliation
-must be implemented before support requests can save memories.
+The support panel can explicitly save one of three structured preferences. It
+never uploads the question or a raw transcript. The server derives tenant/user
+scope, verifies case ownership, and enqueues an immutable event in Neon. Reusing
+an event ID with different content returns 409. Each preference expires from
+application eligibility after 30 days. New events share a global 50-per-UTC-day
+cap; retries with an existing event ID do not allocate another event. Reservations
+may consume a slot even if a subsequent database write fails.
+
+Deploy the separate scheduled dispatcher with an ignored, owner-only
+`.wrangler/memory-dispatch-secrets.json` containing `DATABASE_URL`,
+`MEMWAL_PRIVATE_KEY`, `MEMWAL_ACCOUNT_ID`, and `MEMWAL_SERVER_URL`:
+
+```sh
+pnpm exec wrangler deploy --config wrangler.memory-dispatch.jsonc --secrets-file .wrangler/memory-dispatch-secrets.json --minify
+```
+
+It has no public endpoint. Each scheduled invocation claims at most five jobs
+with expiring database leases, submits with stable idempotency keys, and polls
+known provider jobs. The database preserves work across restarts. A completed
+receipt must match the expected job, namespace, and blob. After 20 attempts,
+unfinished jobs stop retrying with `RETRY_EXHAUSTED`; inspect their provider state
+before explicitly resuming them. Deployment of a cron trigger can take time to
+propagate; enqueued work remains in Neon meanwhile.
+
+Recall uses the newest eligible preference for the owned case and requires an
+exact text/blob match with its saved database reference. Unknown references,
+expired or suppressed rows, and another user's memories are excluded. A newer
+pending preference prevents fallback to an older saved preference. "Stop using
+saved preferences" changes application eligibility; it does not delete provider
+records or cancel a provider write already in flight. The managed relayer sees
+plaintext; these synthetic preferences are not end-to-end private.
+
+`wrangler.memory-probe.jsonc` is an optional authenticated compatibility probe.
+Its secrets file needs the three `MEMWAL_*` values, a separate random
+`PROBE_TOKEN` of at least 32 characters, and `PROBE_JOB_ID`/`PROBE_BLOB_ID` from
+the original setup check. POST `/write` retries only that fixed synthetic text
+and original key; POST `/verify` checks completion and exact recall. Neither
+endpoint accepts caller-supplied content.
+
+For the live local-app flow, with the dispatcher running:
+
+```sh
+TALO_LOCAL_URL=http://127.0.0.1:5175 pnpm check:memory:flow enqueue
+TALO_LOCAL_URL=http://127.0.0.1:5175 pnpm check:memory:flow verify
+```
+
+`enqueue` saves one synthetic Alex preference and retains its event reference
+under ignored `.wrangler/`. `verify` checks the database receipt, scoped Walrus
+recall, and one OpenAI answer; exit 2 means the dispatcher has not saved it yet.
+The optional `suppress` command stops using this case's preferences.
+
+`pnpm check:memory:jobs` requires an isolated Neon branch connection in ignored
+`.env.memory-schema-check`. It tests dispatch races and recovery using fake
+provider responses, and exercises the database model-attempt cap without calling
+OpenAI. Do not point this test at production; it resets the isolated branch's
+daily usage counter.
+
+### OpenAI support answers
+
+Put `OPENAI_API_KEY` in ignored `.dev.vars`, then rebuild/restart. Talo calls the
+Responses API with `gpt-6-luna`, strict structured output, `store: false`, no
+action tools, a bounded context, and at most 800 output tokens. Input is the
+user's question plus the owned synthetic case and verified preference. A global
+Neon counter allows at most 20 attempts per UTC day. Failures and timeouts count;
+there are no automatic paid retries. This is an attempt cap, not a dollar budget.
+If configuration, quota, validation, or a provider call fails, the app returns its
+deterministic answer and labels the generation mode. The model cannot change
+access, send a ticket, or write memory.
 
 ### Tatum on Cloudflare's edge
 
@@ -178,7 +279,7 @@ neon init -y --agent codex --package-manager pnpm --org-id <org-id> --project-id
 neon deploy
 ```
 
-`neon.ts` manages Postgres only and preserves existing branch settings. Test
+`neon.ts` manages Postgres and Managed Auth while preserving existing branch settings. Test
 migrations against a separate Neon branch before applying them to production.
 With `.neon` linked to the intended branch and credentials downloaded:
 
@@ -213,8 +314,18 @@ vinext reimplements Next.js APIs and is under active development. This app uses
 its Worker runtime rather than stock Next.js server output. Cloudflare hosting,
 production credentials, and any paid plan must be configured separately. The
 repository includes a deployment command but does not deploy during setup or
-verification. Remove local demo assumptions and establish production auth before
-opening support access publicly.
+verification. For public deployment, set `TALO_PUBLIC_AUTH=true`, disable local demo mode and
+diagnostics, configure the auth cookie secret and trusted origin, and supply only
+the required server secrets. Keep the shared email sender limited to hackathon
+testing. The static asset directory must be `dist/client`, never `dist/server`.
+
+`pnpm check:auth` exercises public auth against the local preview. It stores
+synthetic test credentials in ignored `.wrangler/public-auth-check.json`. Only
+new reserved-domain test identities are marked verified by the setup script so
+session and isolation checks can run; real email verification is not bypassed by
+any application endpoint. The test includes one bounded OpenAI generation.
+The main app's public support surface still uses synthetic payment/access facts;
+it does not authorize money movement or entitlement changes.
 
 See [architecture](docs/architecture.md) for request boundaries, provider status,
-and the remaining authentication, persistence, and background-work implementation.
+and the remaining production authentication and invoice-attribution work.

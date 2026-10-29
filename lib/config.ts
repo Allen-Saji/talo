@@ -8,6 +8,9 @@ const schema = z.object({
   MEMWAL_PRIVATE_KEY: secret, MEMWAL_ACCOUNT_ID: secret,
   MEMWAL_SERVER_URL: secret.pipe(z.literal("https://relayer.memory.walrus.xyz").optional()),
   OPENAI_API_KEY: secret,
+  TALO_PUBLIC_AUTH: z.string().optional().transform((value) => value === "true"),
+  NEON_AUTH_BASE_URL: secret.pipe(z.url().optional()),
+  NEON_AUTH_COOKIE_SECRET: secret,
   SESSION_SECRET: secret, DIAGNOSTICS_TOKEN: secret,
 });
 export type Config = z.infer<typeof schema>;

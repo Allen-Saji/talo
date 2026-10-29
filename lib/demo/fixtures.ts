@@ -4,7 +4,7 @@ export const demoUsers = [
   { id: "jules", name: "Jules", tenantId: "fieldwork", tenantName: "Fieldwork", caseId: "case-jules" },
 ] as const;
 export type Principal = { userId: string; tenantId: string };
-export type DemoUser = typeof demoUsers[number];
+export type DemoUser = { id: string; name: string; tenantId: string; tenantName: string; caseId: string };
 export type SupportCase = {
   id: string; owner: Principal; invoiceId: string;
   entitlement: "pending" | "active"; attempts: string[]; preference: string;

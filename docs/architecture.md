@@ -7,19 +7,25 @@ production Worker output as well as the development server.
 
 ## Current request path
 
-1. A local-only session endpoint signs a synthetic customer identity into an
-   HttpOnly cookie. Tenant membership comes from the server's fixture registry.
+1. Public mode verifies a Neon Auth session and verified email on every protected
+   request. Server-derived personal workspace/case IDs isolate each identity. The
+   local fixture selector is a separate mode and cannot issue identities in public
+   mode.
 2. The support route validates the request origin, cookie, and bounded JSON body.
 3. Case lookup checks both user and tenant before returning any case content.
 4. With `DATABASE_URL`, the support and billing routes query Neon for the owned
    case. Otherwise the local demo uses in-memory fixtures. A configured database
    failure never falls back to fixtures.
-5. A deterministic response separates payment evidence, application access,
-   previous attempts, and a prepared handoff. Evidence remains synthetic; the
-   response reports its case storage as `neon` or `fixture` separately.
+5. Scoped Walrus recall can replace the fixture preference after matching the
+   newest eligible database reference and exact provider text/blob.
+6. OpenAI `gpt-6-luna` can generate an answer from the owned context after an atomic
+   daily attempt reservation. Structured output has no action tools. Errors fall
+   back to deterministic text. Payment and history remain labeled synthetic;
+   storage, memory source, and generation mode are reported separately.
 
-The fixture identity selector requires explicit demo mode and a loopback hostname.
-It is not production authentication. Sessions expire after eight hours. Private
+The local fixture identity selector requires explicit demo mode and a loopback
+hostname; its sessions expire after eight hours. Public session state is checked
+against Neon Auth without cached session-data authorization. Private
 API responses use no-store. Provider errors are never echoed to the client.
 
 ## Data and providers
@@ -30,7 +36,7 @@ API responses use no-store. Provider errors are never echoed to the client.
   command inserts synthetic cases without overwriting existing records.
   Runtime queries use Drizzle's Neon HTTP adapter. Drizzle migrations use a
   direct connection and a WebSocket transaction. `neon.ts` preserves branch
-  settings and adds no Auth, Storage, Functions, or AI Gateway services.
+  settings and enables Managed Auth, without Storage, Functions, or AI Gateway.
 - Tatum's adapter uses fetch-based Sui gRPC-web with an API-key metadata header,
   explicit field masks, and a deadline. It opts into Cloudflare edge conversion
   through `cf.grpcWeb: "convert"` because Tatum responds with native gRPC.
@@ -40,8 +46,9 @@ API responses use no-store. Provider errors are never echoed to the client.
   not included.
 - The Walrus adapter uses the managed Mainnet relayer and a reserved synthetic
   probe namespace. Submission and status reads are separate; only a completed
-  job with the expected namespace and blob reference is saved. No route exposes
-  memory writes in this checkpoint.
+  job with the expected ID, namespace, and blob reference is saved. The authenticated
+  memory route permits explicit structured preferences for an owned case; it
+  rejects raw transcripts and caller-supplied scope.
 - The explicit `check:memory write` CLI can submit one synthetic setup record,
   with a stable idempotency key and an ignored local job reference. A separate
   `verify` process confirms completion and exact text/blob recall. The read-only
@@ -52,25 +59,50 @@ API responses use no-store. Provider errors are never echoed to the client.
   requires --live to request them. Successful empty recall does not prove a write.
 
 Neon CLI downloads credentials into `.env.local` (or existing `.env`). Vite
-startup/build synchronizes only the pooled runtime URL to ignored `.dev.vars`
+startup/build synchronizes the pooled runtime URL and Auth service URL to ignored `.dev.vars`
 because Workers ignores `.env` when `.dev.vars` exists. The direct migration
 URL remains outside Worker bindings. Remote Worker deployment still needs a
 Cloudflare `DATABASE_URL` secret.
 
 Provider credentials stay in server-side configuration. There is no browser
-database access, model call, payment execution, or external ticket delivery.
+database access or direct model credential, payment execution, or external ticket delivery.
+
+## Durable memory jobs
+
+Neon is the durable queue and eligibility record. A scheduled Worker claims at
+most five jobs per invocation with one UPDATE/SELECT FOR UPDATE SKIP LOCKED
+statement. Five-minute leases and token-checked updates prevent concurrent
+workers from overwriting each other's receipts. Submission retries use immutable
+content and a stable idempotency key with provider content deduplication. Known
+provider jobs are polled instead of resubmitted. Unknown receipts remain unknown.
+After 20 dispatch attempts, unfinished jobs require operator reconciliation.
+
+The scheduler uses one-minute cron ticks rather than a Workflow instance per
+preference. Database rows preserve unclaimed work and work left by a crash;
+expiry, eligibility, case ownership, membership, and provider-account binding are
+checked before dispatch. Suppression prevents future retrieval but is not a
+provider deletion or a cancellation of an already in-flight upload.
+
+Namespaces are deterministic hashes of tenant/user scope, not an authorization
+boundary. Recall checks database ownership, newest eligible version, 30-day
+expiry, account, namespace, exact text/blob identity, and then rechecks eligibility
+and ownership after the provider call. Missing or stale references fail closed.
+Only three allowlisted instruction preferences are eligible in this version.
+
+## Model boundary
+
+The server uses OpenAI Responses with fixed `gpt-6-luna`, strict structured
+output, `store: false`, an 800-token output cap, a 25-second timeout, and no tools.
+A single atomic Neon counter limits all users together to 20 attempts per UTC day.
+Failures count and are not retried automatically. Model text is not authoritative
+payment evidence; the server supplies evidence and route fields independently.
 
 ## Next integration steps
 
-Prove Walrus writes from Workers and implement invoice attribution for Tatum
-observations. Synthetic writes and
-fresh-process recall are covered by the explicit CLI checks; Workers diagnostics
-can verify reads of the same synthetic record. Add the
-durable Workflow and dispatch/reconciliation mechanism with idempotency before
-exposing memory writes to support requests. An accepted write is not completion.
-
-Production authentication, invoice attribution, memory eligibility checks, model
-tools, operator approvals, and background orchestration remain unimplemented.
+Invoice attribution for Tatum observations, episodic attempt memory, approved
+shared lessons, and operator review remain unfinished. Public sign-in is
+implemented; hackathon testing uses Neon's shared email sender. Custom SMTP and
+real email delivery/OTP checks are needed before a production launch.
 
 ## Primary references
 
@@ -82,3 +114,8 @@ tools, operator approvals, and background orchestration remain unimplemented.
 - [Tatum Sui APIs](https://docs.tatum.io/reference/rpc-sui)
 - [Walrus Workers setup](https://docs.wal.app/walrus-memory/sdk/cloudflare-workers)
 - [Walrus SDK API](https://docs.wal.app/walrus-memory/sdk/api-reference)
+
+- [Cloudflare scheduled triggers](https://developers.cloudflare.com/workers/configuration/cron-triggers/)
+- [OpenAI GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna)
+
+- [Neon public auth setup](https://neon.com/docs/auth/quick-start/nextjs-api-only)
