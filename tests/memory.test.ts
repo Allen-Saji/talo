@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readConfig } from "../lib/config";
-import { createMemoryClient, probeMemoryStatus, submitProbeMemory } from "../lib/providers/memory";
+import { memoryStatus, createMemoryClient, probeMemoryStatus, submitProbeMemory } from "../lib/providers/memory";
 
 const sdk = vi.hoisted(() => ({ create: vi.fn(), remember: vi.fn(), getRememberStatus: vi.fn() }));
 vi.mock("@mysten-incubation/memwal", () => ({ MemWal: { create: sdk.create } }));
@@ -40,4 +40,11 @@ describe("memory completion contract", () => {
     expect(await probeMemoryStatus(config, "job-1")).toMatchObject({ state: "unknown" });
     expect(sdk.remember).not.toHaveBeenCalled();
   });
+});
+
+it("rejects foreign job receipts and wrong namespaces", async () => {
+  sdk.getRememberStatus.mockResolvedValue({ job_id: "foreign-job", status: "done", namespace: "scope", blob_id: "blob" });
+  expect(await memoryStatus(config, "scope", "expected-job")).toEqual({ state: "unknown" });
+  sdk.getRememberStatus.mockResolvedValue({ job_id: "expected-job", status: "done", namespace: "foreign-scope", blob_id: "blob" });
+  expect(await memoryStatus(config, "scope", "expected-job")).toEqual({ state: "unknown" });
 });
