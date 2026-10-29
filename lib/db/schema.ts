@@ -2,6 +2,16 @@ import { sql } from "drizzle-orm";
 import { jsonb, boolean, integer, index, foreignKey, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const tenants = pgTable("tenants", { id: text().primaryKey(), name: text().notNull() });
+export const applications = pgTable("applications", {
+  id: text().primaryKey(),
+  tenantId: text().notNull().references(() => tenants.id).unique(),
+  name: text().notNull(),
+  origins: text().array().notNull(),
+  documentation: text().notNull(),
+  revision: integer().notNull().default(1),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
 export const users = pgTable("users", { id: text().primaryKey(), name: text().notNull() });
 export const memberships = pgTable("memberships", {
   tenantId: text().notNull().references(() => tenants.id),

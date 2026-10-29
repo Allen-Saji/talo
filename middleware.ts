@@ -11,4 +11,4 @@ export async function middleware(request: NextRequest) {
   try { return await (await managedAuth(config)).middleware({ loginUrl: "/auth/sign-in" })(request); }
   catch { return NextResponse.redirect(new URL("/auth/sign-in", request.url)); }
 }
-export const config = { matcher: ["/"] };
+export const config = { matcher: ["/", "/dashboard", "/playground"] };

@@ -23,7 +23,7 @@ export function requireSameOrigin(request: Request) {
     throw new ApiError(403, "ORIGIN_REJECTED", "Use this application's own page.");
   }
 }
-export async function parseBody<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
+export async function parseBody<T>(request: Request, schema: z.ZodType<T>, maxBytes = 8192): Promise<T> {
   if (!request.headers.get("Content-Type")?.startsWith("application/json")) throw new ApiError(415, "JSON_REQUIRED", "Send a JSON request.");
   const reader = request.body?.getReader();
   if (!reader) throw new ApiError(400, "BODY_REQUIRED", "A request body is required.");
@@ -34,7 +34,7 @@ export async function parseBody<T>(request: Request, schema: z.ZodType<T>): Prom
       const chunk = await reader.read();
       if (chunk.done) break;
       size += chunk.value.byteLength;
-      if (size > 8192) { await reader.cancel(); throw new ApiError(413, "BODY_TOO_LARGE", "Keep requests below 8 KB."); }
+      if (size > maxBytes) { await reader.cancel(); throw new ApiError(413, "BODY_TOO_LARGE", `Keep requests below ${maxBytes / 1024} KB.`); }
       chunks.push(chunk.value);
     }
   } finally { reader.releaseLock(); }
