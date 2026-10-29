@@ -8,6 +8,8 @@ export function createTatumClient(apiKey: string) {
     format: "binary",
     meta: { "x-api-key": apiKey },
     timeout: 10_000,
+    // Tatum serves native gRPC. Convert at Cloudflare's edge, preserving trailers.
+    fetchInit: { redirect: "manual", cf: { grpcWeb: "convert" } },
   });
 }
 
