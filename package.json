@@ -46,6 +46,7 @@
     "test": "vitest run",
     "check:providers": "node scripts/check-providers.mjs",
     "check:memory": "tsx scripts/check-memory.ts",
+    "check:tatum:edge": "node scripts/check-tatum-edge.mjs",
     "test:smoke": "node scripts/smoke.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/database.ts migrate",

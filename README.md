@@ -91,8 +91,8 @@ pnpm check:providers --live --provider=neon
 ```
 
 The live checks run a Neon read-only batch, a Tatum gRPC-web transaction read, and
-an authenticated Walrus recall in a reserved synthetic namespace. Tatum transport
-acceptance is not yet established. Empty recall can verify authenticated access
+an authenticated Walrus recall in a reserved synthetic namespace. Tatum reads need
+Cloudflare's edge gRPC conversion, described below. Empty recall can verify authenticated access
 but does not prove memory persistence. No diagnostic endpoint uploads memories.
 
 ### Walrus Memory setup
@@ -131,6 +131,37 @@ deletes memories. If you use port 5174, prefix commands with
 The support panel still uses seeded case history. These checks verify the SDK
 connection; production memory eligibility and durable dispatch/reconciliation
 must be implemented before support requests can save memories.
+
+### Tatum on Cloudflare's edge
+
+Tatum's Sui endpoint serves native gRPC. The adapter explicitly requests
+Cloudflare conversion with `fetchInit.cf.grpcWeb = "convert"` and disables
+redirects. Local workerd and plain Node fetch do not perform this edge conversion;
+a local Tatum diagnostic can fail even when the deployed edge check passes.
+
+`wrangler.tatum-probe.jsonc` deploys a separate protected probe that uses the same
+adapter as the app. It accepts only an authenticated `POST /check`, reads only
+the configured transaction, and never accepts caller-supplied digests. It does
+not open the app's local-only authentication or diagnostics routes.
+
+Create an ignored, owner-only `.wrangler/tatum-edge-secrets.json` with
+`TATUM_API_KEY`, `TATUM_TRANSACTION_DIGEST`, and a separately generated random
+`PROBE_TOKEN` of at least 32 characters. Deploy to your selected account:
+
+```sh
+pnpm exec wrangler deploy --config wrangler.tatum-probe.jsonc --secrets-file .wrangler/tatum-edge-secrets.json --minify
+npm run check:tatum:edge -- https://talo-tatum-probe.<your-subdomain>.workers.dev
+```
+
+Set the same recent, confirmed public digest as `TATUM_TRANSACTION_DIGEST` in
+local configuration. Public full nodes may prune older transaction data.
+The check rejects unauthenticated requests, reads through the deployed Worker,
+and independently compares chain identity, digest, sender, execution, and
+checkpoint against Sui's public Mainnet full node. It saves public-chain proof
+under ignored `.wrangler/`. The Tatum API key is sent only to Tatum; the probe
+token is sent only to the configured probe. A chain read does not establish
+invoice attribution. Account support for edge conversion must be verified by
+this check before relying on it.
 
 ## Database
 

@@ -32,8 +32,12 @@ API responses use no-store. Provider errors are never echoed to the client.
   direct connection and a WebSocket transaction. `neon.ts` preserves branch
   settings and adds no Auth, Storage, Functions, or AI Gateway services.
 - Tatum's adapter uses fetch-based Sui gRPC-web with an API-key metadata header,
-  explicit field masks, and a deadline. Endpoint acceptance remains unverified.
-  Observations never claim invoice matching. Native grpc-js is not included.
+  explicit field masks, and a deadline. It opts into Cloudflare edge conversion
+  through `cf.grpcWeb: "convert"` because Tatum responds with native gRPC.
+  A protected standalone probe can verify the same adapter on Cloudflare's edge,
+  with an independent public Mainnet comparison. Local workerd does not perform
+  this conversion. Observations never claim invoice matching. Native grpc-js is
+  not included.
 - The Walrus adapter uses the managed Mainnet relayer and a reserved synthetic
   probe namespace. Submission and status reads are separate; only a completed
   job with the expected namespace and blob reference is saved. No route exposes
@@ -58,7 +62,8 @@ database access, model call, payment execution, or external ticket delivery.
 
 ## Next integration steps
 
-Prove Tatum gRPC-web and Walrus writes from Workers. Synthetic writes and
+Prove Walrus writes from Workers and implement invoice attribution for Tatum
+observations. Synthetic writes and
 fresh-process recall are covered by the explicit CLI checks; Workers diagnostics
 can verify reads of the same synthetic record. Add the
 durable Workflow and dispatch/reconciliation mechanism with idempotency before
