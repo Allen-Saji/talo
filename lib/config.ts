@@ -7,6 +7,7 @@ const schema = z.object({
   DATABASE_URL: secret, TATUM_API_KEY: secret, TATUM_TRANSACTION_DIGEST: secret,
   MEMWAL_PRIVATE_KEY: secret, MEMWAL_ACCOUNT_ID: secret,
   MEMWAL_SERVER_URL: secret.pipe(z.literal("https://relayer.memory.walrus.xyz").optional()),
+  OPENAI_API_KEY: secret,
   SESSION_SECRET: secret, DIAGNOSTICS_TOKEN: secret,
 });
 export type Config = z.infer<typeof schema>;

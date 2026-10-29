@@ -11,6 +11,8 @@ export function answerSupport(principal: Principal, caseId: string, question: st
 export function formatSupportAnswer(supportCase: SupportCase, question: string, storage: "fixture" | "neon") {
   const relevant = /pay|paid|access|invoice|billing|subscription/i.test(question);
   return {
+    generation: "deterministic" as "deterministic" | "openai",
+    model: null as string | null,
     mode: "fixture" as const, storage, caseId: supportCase.id,
     answer: !relevant
       ? "This local version can investigate the demo payment and access case. Ask about your invoice or missing access."
@@ -21,7 +23,7 @@ export function formatSupportAnswer(supportCase: SupportCase, question: string, 
     evidence: {
       payment: { source: "fixture", execution: "success", invoiceMatch: "match", invoiceId: supportCase.invoiceId },
       entitlement: { source: "fixture", status: supportCase.entitlement },
-      memory: { source: "fixture", persisted: false },
+      memory: { source: "fixture" as "fixture" | "walrus", persisted: false },
     },
     route: { id: "billing-status", href: "/billing", label: "Check billing status" },
     handoff: {
