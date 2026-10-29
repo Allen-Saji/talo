@@ -1,3 +1,4 @@
+import type { InvoiceEvidence } from "./payments/invoice";
 import type { Principal, SupportCase } from "./demo/fixtures";
 import { findOwnedCase } from "./demo/fixtures";
 import { ApiError } from "./http";
@@ -19,9 +20,11 @@ export function formatSupportAnswer(supportCase: SupportCase, question: string, 
       : supportCase.entitlement === "pending"
         ? "The demo payment matches your invoice, but access is still pending in the app. You have already tried the steps below. Check billing status, then share the prepared summary with support if access remains pending."
         : "Your demo access is active. Open billing status to check the entitled workspace. Your previous case was resolved by switching workspaces.",
+    lessons: [] as Array<{ id: string; text: string; source: "walrus" }>,
     attempts: [...supportCase.attempts], preference: supportCase.preference,
     evidence: {
-      payment: { source: "fixture", execution: "success", invoiceMatch: "match", invoiceId: supportCase.invoiceId },
+      payment: { source: "fixture", execution: "success", invoiceMatch: "match", invoiceId: supportCase.invoiceId } as InvoiceEvidence | { source: "fixture"; execution: string; invoiceMatch: string; invoiceId: string },
+      history: { source: "fixture" as "fixture" | "walrus", customerReported: false },
       entitlement: { source: "fixture", status: supportCase.entitlement },
       memory: { source: "fixture" as "fixture" | "walrus", persisted: false },
     },

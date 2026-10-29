@@ -23,3 +23,7 @@ OPENAI_API_KEY=
 TALO_PUBLIC_AUTH=false
 NEON_AUTH_BASE_URL=
 NEON_AUTH_COOKIE_SECRET=
+
+# Lesson reviewers: exact verified account emails or server-derived IDs.
+TALO_OPERATOR_EMAILS=
+TALO_OPERATOR_IDS=

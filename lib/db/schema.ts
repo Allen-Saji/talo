@@ -1,4 +1,5 @@
-import { boolean, integer, index, foreignKey, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { jsonb, boolean, integer, index, foreignKey, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const tenants = pgTable("tenants", { id: text().primaryKey(), name: text().notNull() });
 export const users = pgTable("users", { id: text().primaryKey(), name: text().notNull() });
@@ -22,11 +23,13 @@ export const supportCases = pgTable("support_cases", {
 })]);
 
 export const jobState = pgEnum("memory_job_state", ["pending", "submitted", "saved", "failed", "unknown"]);
+export const memoryKind = pgEnum("memory_kind", ["preference", "attempt", "lesson"]);
 export const memoryJobs = pgTable("memory_jobs", {
   id: text().primaryKey(),
   tenantId: text().notNull().references(() => tenants.id),
   userId: text().notNull().references(() => users.id),
   eventId: text().notNull(),
+  kind: memoryKind().notNull().default("preference"),
   caseId: text().references(() => supportCases.id),
   content: text(),
   providerAccountId: text(),
@@ -49,3 +52,22 @@ export const modelDailyUsage = pgTable("model_daily_usage", {
   day: text().primaryKey(),
   requests: integer().notNull().default(0),
 });
+
+export const paymentObservations = pgTable("payment_observations", {
+  digest: text().primaryKey(),
+  observation: jsonb().notNull(),
+  observedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
+export const lessonState = pgEnum("lesson_state", ["candidate", "redacted", "approved", "retired"]);
+export const lessons = pgTable("lessons", {
+  id: text().primaryKey(), tenantId: text().notNull().references(() => tenants.id),
+  sourceCaseId: text().notNull().references(() => supportCases.id),
+  sourceJobId: text().notNull().references(() => memoryJobs.id),
+  authorId: text().notNull().references(() => users.id), code: text().notNull(),
+  productVersion: text().notNull(), state: lessonState().notNull().default("candidate"),
+  memoryJobId: text().references(() => memoryJobs.id), reviewerId: text(),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("one_approved_lesson").on(table.tenantId, table.code, table.productVersion).where(sql`${table.state} = 'approved'`)]);

@@ -1,3 +1,4 @@
+import { inspectSampleInvoice } from "../../../lib/payments/invoice";
 import { authenticateRequest } from "../../../lib/public-auth";
 import { demoUsers } from "../../../lib/demo/fixtures";
 import { loadOwnedCase } from "../../../lib/db/cases";
@@ -10,5 +11,5 @@ export const GET = api(async (request) => {
   const user = demoUsers.find((item) => item.id === principal.userId);
   const { supportCase: item, storage } = await loadOwnedCase(config, principal, ("caseId" in principal ? principal.caseId : user?.caseId) ?? "");
   if (!item) throw new ApiError(404, "CASE_NOT_FOUND", "This case is unavailable.");
-  return json({ invoiceId: item.invoiceId, entitlement: item.entitlement, mode: "fixture", storage });
+  return json({ invoiceId: item.invoiceId, entitlement: item.entitlement, mode: "fixture", storage, payment: await inspectSampleInvoice(config, item.invoiceId) });
 });

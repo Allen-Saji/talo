@@ -1,0 +1,1 @@
+export const attemptLabels = { refresh: "Refresh the page", signin: "Sign out and back in", browser: "Try a different browser", workspace: "Switch to the entitled workspace", mobile: "Reopen the mobile app" } as const;

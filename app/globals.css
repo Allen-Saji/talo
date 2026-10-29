@@ -35,3 +35,5 @@ legend { padding: 0 6px; font-weight: 600; }
 .memory-actions button { min-height: 44px; }
 
 input { width: 100%; min-height: 44px; box-sizing: border-box; padding: 12px; border: 1px solid #a4aaa3; border-radius: 8px; background: #fff; color: #18231c; font: inherit; }
+
+.evidence-value { overflow-wrap: anywhere; }

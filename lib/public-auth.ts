@@ -21,7 +21,9 @@ export async function authenticateRequest(request: Request, config: Config) {
   const user = await publicSession(config);
   if (!user) throw new ApiError(401, "SIGN_IN_REQUIRED", "Sign in to use your support case.");
   if (!user.emailVerified) throw new ApiError(403, "VERIFY_EMAIL", "Verify your email before using support.");
-  return publicIdentity(user.id);
+  const identity = publicIdentity(user.id);
+  const isOperator = config.TALO_OPERATOR_EMAILS?.split(",").map((email) => email.trim().toLowerCase()).includes(user.email.toLowerCase()) ?? false;
+  return isOperator ? { ...identity, isOperator: true as const } : identity;
 }
 export async function ensurePublicWorkspace(config: Config, user: { id: string; name: string; emailVerified: boolean }) {
   if (!user.emailVerified) throw new ApiError(403, "VERIFY_EMAIL", "Verify your email before using support.");
