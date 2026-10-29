@@ -20,7 +20,7 @@ async function main() {
     method: body === undefined ? "GET" : "POST", headers: { "Content-Type": "application/json", Origin: origin, ...(cookie ? { Cookie: cookie } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(45_000), redirect: "manual",
   });
-  const home = await request("/"); assert.equal(home.status, 200); assert.match(await home.text(), /Pick up where you left off/);
+  const home = await request("/"); assert.equal(home.status, 200); assert.match(await home.text(), /Every conversation/);
   assert.equal((await request("/api/billing")).status, 401);
   assert.equal((await request("/api/session", { userId: "alex" })).status, 404);
   assert.equal((await request("/api/auth/sign-in/email", {}, "", "https://other.example")).status, 403);
