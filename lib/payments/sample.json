@@ -1,0 +1,13 @@
+{
+  "sampleId": "sui-transfer-sample-v1",
+  "digest": "2NJKQkjBNc9tfEDKpddShKrRC3qNyCtD78hvHgx32h1S",
+  "network": "mainnet",
+  "chainId": "4btiuiMPvEENsttpZC7CZ53DruC3MAgfznDbASZ7DR6S",
+  "sender": "0x1f7b27844f2c4a0262b2c481f7ab956d10ace524c5a7b06c3742cfb8701db714",
+  "recipient": "0xc2988eb022881ce8ded5cc6d2369e1bfc60300e904fb5070f33e335a3f20e38b",
+  "coinType": "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI",
+  "amount": "3000924854300",
+  "notBefore": "1793246959",
+  "notAfter": "1793246959",
+  "provenance": "Historical public Mainnet transfer replayed against a synthetic invoice. Not a payment to Talo or evidence that this user paid."
+}

@@ -31,7 +31,7 @@ describe("Tatum transaction observation", () => {
     const result = await observeTransaction("test-api-key", digest);
     expect(result).toMatchObject({ network: "mainnet", chainId, digest, execution: "success", checkpoint: "123", invoiceMatch: "not_evaluated" });
     expect(result.balanceChanges[0].amount).toBe("-10000000000000001");
-    expect(sdk.transaction).toHaveBeenCalledWith({ digest, readMask: { paths: ["digest", "transaction.sender", "effects.status", "checkpoint", "timestamp", "balance_changes"] } });
+    expect(sdk.transaction).toHaveBeenCalledWith({ digest, readMask: { paths: ["digest", "transaction.sender", "transaction.kind", "transaction.gas_payment", "effects.status", "checkpoint", "timestamp", "balance_changes"] } });
   });
   it("rejects invalid input before making a provider call", async () => {
     await expect(observeTransaction("test-api-key", "invalid")).rejects.toThrow("INVALID_DIGEST");

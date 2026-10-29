@@ -1,3 +1,4 @@
+import { parseSimpleSuiTransfer } from "../payments/matcher";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { isValidTransactionDigest } from "@mysten/sui/utils";
 
@@ -20,11 +21,11 @@ export async function observeTransaction(apiKey: string, digest: string) {
   if (info.chain !== "mainnet" || !info.chainId) throw new Error("NETWORK_NOT_VERIFIED");
   const { response } = await client.ledgerService.getTransaction({
     digest,
-    readMask: { paths: ["digest", "transaction.sender", "effects.status", "checkpoint", "timestamp", "balance_changes"] },
+    readMask: { paths: ["digest", "transaction.sender", "transaction.kind", "transaction.gas_payment", "effects.status", "checkpoint", "timestamp", "balance_changes"] },
   });
   const transaction = response.transaction;
   if (!transaction || transaction.digest !== digest) throw new Error("INCOMPLETE_TRANSACTION");
-  // This is chain evidence only. No invoice matcher has been implemented.
+  // This provider returns chain evidence for the separate invoice matcher.
   return {
     provider: "tatum", network: "mainnet", chainId: info.chainId,
     digest, observedAt: new Date().toISOString(),
@@ -34,6 +35,7 @@ export async function observeTransaction(apiKey: string, digest: string) {
     checkpoint: transaction.checkpoint?.toString() ?? null,
     timestamp: transaction.timestamp ? { seconds: transaction.timestamp.seconds.toString(), nanos: transaction.timestamp.nanos } : null,
     balanceChanges: transaction.balanceChanges.map((change) => ({ address: change.address, coinType: change.coinType, amount: change.amount })),
+    transfer: parseSimpleSuiTransfer(transaction.transaction, transaction.balanceChanges),
     invoiceMatch: "not_evaluated",
   };
 }
