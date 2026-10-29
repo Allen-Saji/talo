@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readConfig } from "../lib/config";
+import { createDatabase } from "../lib/db/client";
+import { sql } from "drizzle-orm";
 import { loadOwnedCase } from "../lib/db/cases";
 
 const principal = { userId: "alex", tenantId: "studio" };
@@ -26,4 +28,13 @@ describe("case persistence", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
     await expect(loadOwnedCase(config, principal, "case-alex")).rejects.toThrow();
   });
+});
+
+it("creates independent request deadlines when reusing a database client", async () => {
+  const transport = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ fields: [], rows: [], rowCount: 0 }), { headers: { "Content-Type": "application/json" } })));
+  vi.stubGlobal("fetch", transport);
+  const db = createDatabase(config.DATABASE_URL!);
+  await db.execute(sql`select 1`);
+  await db.execute(sql`select 1`);
+  expect(transport.mock.calls[0][1].signal).not.toBe(transport.mock.calls[1][1].signal);
 });
