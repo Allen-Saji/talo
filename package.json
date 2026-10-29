@@ -57,7 +57,12 @@
     "setup:local": "node scripts/setup-local.mjs",
     "check:memory:jobs": "tsx scripts/check-memory-jobs.ts",
     "check:memory:flow": "tsx scripts/check-memory-flow.ts",
-    "check:auth": "tsx scripts/check-public-auth.ts"
+    "check:auth": "tsx scripts/check-public-auth.ts",
+    "check:continuity": "tsx scripts/check-continuity.ts",
+    "check:lessons": "tsx scripts/check-memory-lessons.ts",
+    "check:auth:mail": "tsx scripts/check-auth-mail.ts",
+    "check:applications": "tsx scripts/check-applications.ts",
+    "check:onboarding": "tsx scripts/check-onboarding-http.ts"
   },
   "engines": {
     "node": ">=24.22.1 <25"

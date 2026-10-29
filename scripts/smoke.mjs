@@ -15,7 +15,7 @@ async function check(path, options, expected) {
 }
 
 const page = await check("/", {}, 200);
-assert.match(await page.text(), /Pick up where you left off/);
+assert.match(await page.text(), /Every conversation/);
 await check("/api/hello", {}, 200);
 await check("/api/support", { method: "POST", headers, body: JSON.stringify({ caseId: "case-alex", message: "I paid" }) }, 401);
 await check("/api/session", { method: "POST", headers: { ...headers, Origin: "https://outside.example" }, body: JSON.stringify({ userId: "alex" }) }, 403);

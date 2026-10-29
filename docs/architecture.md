@@ -42,7 +42,7 @@ API responses use no-store. Provider errors are never echoed to the client.
   through `cf.grpcWeb: "convert"` because Tatum responds with native gRPC.
   A protected standalone probe can verify the same adapter on Cloudflare's edge,
   with an independent public Mainnet comparison. Local workerd does not perform
-  this conversion. Observations never claim invoice matching. Native grpc-js is
+  this conversion. The narrow sample matcher binds one historical SUI transfer to a synthetic invoice; it never settles a real invoice. Native grpc-js is
   not included.
 - The Walrus adapter uses the managed Mainnet relayer and a reserved synthetic
   probe namespace. Submission and status reads are separate; only a completed
@@ -87,7 +87,7 @@ Namespaces are deterministic hashes of tenant/user scope, not an authorization
 boundary. Recall checks database ownership, newest eligible version, 30-day
 expiry, account, namespace, exact text/blob identity, and then rechecks eligibility
 and ownership after the provider call. Missing or stale references fail closed.
-Only three allowlisted instruction preferences are eligible in this version.
+Eligible content includes allowlisted preferences, structured customer-reported attempts, and reviewed redacted lesson templates.
 
 ## Model boundary
 
@@ -99,8 +99,10 @@ payment evidence; the server supplies evidence and route fields independently.
 
 ## Next integration steps
 
-Invoice attribution for Tatum observations, episodic attempt memory, approved
-shared lessons, and operator review remain unfinished. Public sign-in is
+The current matcher supports a single historical SUI transfer replay. Real checkout
+invoice issuance, payment bindings, and additional assets remain out of scope.
+Attempt memory and operator-reviewed tenant lessons are implemented; live shared
+lesson publication requires explicit human approval. Public sign-in is
 implemented; hackathon testing uses Neon's shared email sender. Custom SMTP and
 real email delivery/OTP checks are needed before a production launch.
 

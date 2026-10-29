@@ -1,0 +1,42 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
+import { neonConfig, Pool } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { migrate } from "drizzle-orm/neon-serverless/migrator";
+import { readLocalEnv } from "./local-env.mjs";
+import { createDatabase } from "../lib/db/client";
+import { tenants, users, memberships } from "../lib/db/schema";
+import { applicationStore } from "../lib/applications";
+import { applicationInput } from "../lib/application-input";
+async function main() {
+  const env = parseEnv(readFileSync(".env.memory-schema-check", "utf8"));
+  const host = (value: string) => new URL(value).hostname.replace("-pooler", "");
+  assert.ok(env.DATABASE_URL && env.DATABASE_URL_UNPOOLED);
+  assert.notEqual(host(env.DATABASE_URL), host(readLocalEnv().DATABASE_URL));
+  neonConfig.webSocketConstructor = WebSocket;
+  const pool = new Pool({ connectionString: env.DATABASE_URL_UNPOOLED });
+  try { await migrate(drizzle(pool), { migrationsFolder: "drizzle" }); } finally { await pool.end(); }
+  const db = createDatabase(env.DATABASE_URL);
+  const id = randomUUID();
+  const a = { tenantId: `onboarding-a-${id}`, userId: `onboarding-user-a-${id}` };
+  const b = { tenantId: `onboarding-b-${id}`, userId: `onboarding-user-b-${id}` };
+  await db.batch([db.insert(tenants).values([a,b].map(v => ({ id: v.tenantId, name: "Synthetic onboarding check" }))), db.insert(users).values([a,b].map(v => ({ id: v.userId, name: "Synthetic" }))), db.insert(memberships).values([a,b])]);
+  const first = await applicationStore(env.DATABASE_URL, a);
+  const second = await applicationStore(env.DATABASE_URL, b);
+  await assert.rejects(applicationStore(env.DATABASE_URL, { tenantId:a.tenantId, userId:b.userId }), { status:403 });
+  const input = applicationInput.parse({ name:"Synthetic app", origins:["https://example.com"], documentation:"Open Settings and then Team to invite a teammate.", revision:0 });
+  const saved = await first.save(input);
+  assert.equal((await first.get())?.id, saved.id);
+  assert.equal(await second.get(), null);
+  await assert.rejects(first.save(input), { status:409 });
+  const outcomes = await Promise.allSettled([first.save({...input,revision:1,name:"First update"}),first.save({...input,revision:1,name:"Concurrent update"})]);
+  assert.equal(outcomes.filter(v=>v.status==="fulfilled").length,1);
+  assert.equal((await first.get())?.revision,2);
+  const other = await second.save(input);
+  assert.notEqual(other.id,saved.id);
+  assert.equal((await second.get())?.documentation,input.documentation);
+  console.log("Isolated Neon: migration, persistence, ownership denial, duplicate creation, and concurrent revision checks passed.");
+}
+main().catch(() => { console.error("Application integration check failed. Credentials and content hidden."); process.exitCode=1; });

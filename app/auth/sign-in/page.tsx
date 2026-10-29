@@ -1,2 +1,2 @@
 import { redirect } from "next/navigation";
-export default function SignIn() { redirect("/"); }
+export default function SignIn() { redirect("/dashboard"); }

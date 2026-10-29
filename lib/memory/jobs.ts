@@ -3,11 +3,11 @@ import { and, eq, gt, desc, sql } from "drizzle-orm";
 import type { Config } from "../config";
 import { createDatabase } from "../db/client";
 import { loadOwnedCase } from "../db/cases";
-import { memoryJobs } from "../db/schema";
+import { memoryJobs, lessons } from "../db/schema";
 import type { Principal } from "../demo/fixtures";
 import { ApiError } from "../http";
 import { createMemoryClient, memoryStatus, submitMemory } from "../providers/memory";
-import { memoryId, memoryNamespace, parsePreference, preferenceContent, type preferences } from "./policy";
+import { memoryId, memoryNamespace, parsePreference, preferenceContent, type preferences, attemptContent, parseAttempt, validMemoryContent, lessonNamespace, type AttemptAction, type AttemptOutcome, productVersion } from "./policy";
 
 function database(config: Config) {
   if (!config.DATABASE_URL) throw new ApiError(503, "MEMORY_UNAVAILABLE", "Memory storage is unavailable.");
@@ -15,12 +15,17 @@ function database(config: Config) {
 }
 const scope = (principal: Principal, caseId: string) => and(eq(memoryJobs.tenantId, principal.tenantId), eq(memoryJobs.userId, principal.userId), eq(memoryJobs.caseId, caseId));
 export async function enqueuePreference(config: Config, principal: Principal, caseId: string, eventId: string, preference: keyof typeof preferences) {
+  return enqueuePrivateMemory(config, principal, caseId, eventId, "preference", preferenceContent(preference));
+}
+export async function enqueueAttempt(config: Config, principal: Principal, caseId: string, eventId: string, action: AttemptAction, outcome: AttemptOutcome) {
+  return enqueuePrivateMemory(config, principal, caseId, eventId, "attempt", attemptContent(action, outcome));
+}
+async function enqueuePrivateMemory(config: Config, principal: Principal, caseId: string, eventId: string, kind: "preference" | "attempt", content: string) {
   const { supportCase, storage } = await loadOwnedCase(config, principal, caseId);
   if (!supportCase) throw new ApiError(404, "CASE_NOT_FOUND", "This case is unavailable.");
   if (storage !== "neon" || !config.MEMWAL_ACCOUNT_ID || !config.MEMWAL_PRIVATE_KEY) throw new ApiError(503, "MEMORY_UNAVAILABLE", "Memory storage is unavailable.");
   const db = database(config);
   const id = memoryId(principal, eventId);
-  const content = preferenceContent(preference);
   const [existing] = await db.select({ id: memoryJobs.id }).from(memoryJobs).where(eq(memoryJobs.id, id)).limit(1);
   if (!existing) {
     const day = `memory:${new Date().toISOString().slice(0, 10)}`;
@@ -29,12 +34,12 @@ export async function enqueuePreference(config: Config, principal: Principal, ca
       WHERE model_daily_usage.requests < 50 RETURNING requests`);
     if (!quota.rows.length) throw new ApiError(429, "MEMORY_LIMIT", "The demo's daily memory limit has been reached.");
   }
-  await db.insert(memoryJobs).values({ id, ...principal, caseId, eventId, content,
+  await db.insert(memoryJobs).values({ id, ...principal, caseId, eventId, kind, content,
     namespace: memoryNamespace(principal), providerAccountId: config.MEMWAL_ACCOUNT_ID,
     eligible: true, expiresAt: new Date(Date.now() + 30 * 86400_000),
   }).onConflictDoNothing();
   const [job] = await db.select().from(memoryJobs).where(and(eq(memoryJobs.id, id), scope(principal, caseId))).limit(1);
-  if (!job || job.content !== content || job.providerAccountId !== config.MEMWAL_ACCOUNT_ID) throw new ApiError(409, "MEMORY_EVENT_CONFLICT", "Use a new event ID for a different preference.");
+  if (!job || job.kind !== kind || job.content !== content || job.providerAccountId !== config.MEMWAL_ACCOUNT_ID) throw new ApiError(409, "MEMORY_EVENT_CONFLICT", "Use a new event ID for a different preference.");
   return { id: job.id, state: job.state, eligible: job.eligible };
 }
 
@@ -48,7 +53,7 @@ export async function suppressCaseMemories(config: Config, principal: Principal,
 export async function recallPreference(config: Config, principal: Principal, caseId: string) {
   if (!config.DATABASE_URL || !config.MEMWAL_ACCOUNT_ID || !config.MEMWAL_PRIVATE_KEY) return undefined;
   const db = database(config);
-  const current = () => db.select().from(memoryJobs).where(and(scope(principal, caseId), eq(memoryJobs.eligible, true), gt(memoryJobs.expiresAt, new Date()), eq(memoryJobs.providerAccountId, config.MEMWAL_ACCOUNT_ID!))).orderBy(desc(memoryJobs.createdAt), desc(memoryJobs.id)).limit(1);
+  const current = () => db.select().from(memoryJobs).where(and(scope(principal, caseId), eq(memoryJobs.eligible, true), eq(memoryJobs.kind, "preference"), gt(memoryJobs.expiresAt, new Date()), eq(memoryJobs.providerAccountId, config.MEMWAL_ACCOUNT_ID!))).orderBy(desc(memoryJobs.createdAt), desc(memoryJobs.id)).limit(1);
   const [job] = await current();
   // A newer pending preference must not revive an older saved one.
   if (!job || job.state !== "saved" || !job.blobId || !parsePreference(job.content) || job.namespace !== memoryNamespace(principal)) return undefined;
@@ -88,7 +93,11 @@ export async function dispatchMemoryJobs(config: Config, limit = 5, provider = {
     const owned = and(eq(memoryJobs.id, id), eq(memoryJobs.leaseToken, token));
     let providerJobId = job.providerJobId;
     try {
-      if (!job.eligible || !job.content || !parsePreference(job.content) || job.namespace !== memoryNamespace(job)) throw new Error("INELIGIBLE_MEMORY");
+      if (!job.eligible || !job.content || !validMemoryContent(job.kind, job.content) || job.namespace !== (job.kind === "lesson" ? lessonNamespace(job.tenantId) : memoryNamespace(job))) throw new Error("INELIGIBLE_MEMORY");
+      if (job.kind === "lesson") {
+        const [approved] = await db.select().from(lessons).where(and(eq(lessons.memoryJobId, job.id), eq(lessons.tenantId, job.tenantId), eq(lessons.state, "approved"), sql`EXISTS (SELECT 1 FROM memory_jobs source WHERE source.id = ${lessons.sourceJobId} AND source.eligible = true AND source.state = 'saved' AND source."expiresAt" > now())`, eq(lessons.productVersion, productVersion), gt(lessons.expiresAt, new Date()))).limit(1);
+        if (!approved) throw new Error("LESSON_NOT_APPROVED");
+      }
       if (!providerJobId) {
         // Retrying an unknown submission reuses exactly the same immutable content and key.
         providerJobId = await provider.submitMemory(config, job.namespace, job.id, job.content);
@@ -106,4 +115,22 @@ export async function dispatchMemoryJobs(config: Config, limit = 5, provider = {
     processed++;
   }
   return { processed };
+}
+
+export async function recallAttempts(config: Config, principal: Principal, caseId: string, clientFactory = createMemoryClient) {
+  if (!config.DATABASE_URL || !config.MEMWAL_ACCOUNT_ID || !config.MEMWAL_PRIVATE_KEY) return [];
+  const db = database(config);
+  const query = () => db.select().from(memoryJobs).where(and(scope(principal, caseId), eq(memoryJobs.kind, "attempt"), eq(memoryJobs.eligible, true), gt(memoryJobs.expiresAt, new Date()), eq(memoryJobs.providerAccountId, config.MEMWAL_ACCOUNT_ID!))).orderBy(desc(memoryJobs.createdAt), desc(memoryJobs.id)).limit(50);
+  const rows = await query();
+  const latest = new Map<string, typeof rows[number]>();
+  for (const row of rows) { const attempt = parseAttempt(row.content); if (attempt && !latest.has(attempt.action)) latest.set(attempt.action, row); }
+  const wanted = [...latest.values()].filter((row) => row.state === "saved" && row.blobId && row.namespace === memoryNamespace(principal));
+  if (!wanted.length || !(await loadOwnedCase(config, principal, caseId)).supportCase) return [];
+  const client = await clientFactory(config, memoryNamespace(principal));
+  const recalled = await client.recall({ query: "Customer-reported troubleshooting attempts and outcomes", namespace: memoryNamespace(principal), limit: 30, maxTokens: 3000 });
+  const fresh = await query();
+  const current = new Map<string, typeof rows[number]>();
+  for (const row of fresh) { const attempt = parseAttempt(row.content); if (attempt && !current.has(attempt.action)) current.set(attempt.action, row); }
+  if (!(await loadOwnedCase(config, principal, caseId)).supportCase) return [];
+  return wanted.filter((row) => current.get(parseAttempt(row.content)!.action)?.id === row.id && recalled.results.some((hit) => hit.blob_id === row.blobId && hit.text === row.content)).map((row) => ({ ...parseAttempt(row.content)!, jobId: row.id }));
 }

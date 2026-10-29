@@ -21,20 +21,27 @@ export async function authenticateRequest(request: Request, config: Config) {
   const user = await publicSession(config);
   if (!user) throw new ApiError(401, "SIGN_IN_REQUIRED", "Sign in to use your support case.");
   if (!user.emailVerified) throw new ApiError(403, "VERIFY_EMAIL", "Verify your email before using support.");
-  return publicIdentity(user.id);
+  const identity = publicIdentity(user.id);
+  const isOperator = config.TALO_OPERATOR_EMAILS?.split(",").map((email) => email.trim().toLowerCase()).includes(user.email.toLowerCase()) ?? false;
+  return isOperator ? { ...identity, isOperator: true as const } : identity;
 }
-export async function ensurePublicWorkspace(config: Config, user: { id: string; name: string; emailVerified: boolean }) {
+export async function ensureAccountWorkspace(config: Config, user: { id: string; name: string; emailVerified: boolean }) {
   if (!user.emailVerified) throw new ApiError(403, "VERIFY_EMAIL", "Verify your email before using support.");
   if (!config.DATABASE_URL) throw new ApiError(503, "STORAGE_UNAVAILABLE", "Case storage is unavailable.");
   const identity = publicIdentity(user.id);
   const db = createDatabase(config.DATABASE_URL);
   await db.batch([
-    db.insert(tenants).values({ id: identity.tenantId, name: "Your demo workspace" }).onConflictDoNothing(),
+    db.insert(tenants).values({ id: identity.tenantId, name: "Your workspace" }).onConflictDoNothing(),
     db.insert(users).values({ id: identity.userId, name: user.name.slice(0, 100) || "Customer" }).onConflictDoNothing(),
     db.insert(memberships).values({ tenantId: identity.tenantId, userId: identity.userId }).onConflictDoNothing(),
-    db.insert(supportCases).values({ id: identity.caseId, tenantId: identity.tenantId, userId: identity.userId,
-      invoiceId: identity.invoiceId, entitlement: "pending", attempts: ["Refreshing the page did not restore access."], preference: "Keep instructions short.",
-    }).onConflictDoNothing(),
   ]);
+  return identity;
+}
+export async function ensurePublicWorkspace(config: Config, user: { id: string; name: string; emailVerified: boolean }) {
+  const identity = await ensureAccountWorkspace(config, user);
+  const db = createDatabase(config.DATABASE_URL!);
+  await db.insert(supportCases).values({ id: identity.caseId, tenantId: identity.tenantId, userId: identity.userId,
+    invoiceId: identity.invoiceId, entitlement: "pending", attempts: ["Refreshing the page did not restore access."], preference: "Keep instructions short.",
+  }).onConflictDoNothing();
   return { id: identity.userId, name: user.name.slice(0, 100) || "Customer", tenantId: identity.tenantId, tenantName: "Your demo workspace", caseId: identity.caseId };
 }

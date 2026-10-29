@@ -3,7 +3,7 @@ export const demoUsers = [
   { id: "sam", name: "Sam", tenantId: "studio", tenantName: "Studio", caseId: "case-sam" },
   { id: "jules", name: "Jules", tenantId: "fieldwork", tenantName: "Fieldwork", caseId: "case-jules" },
 ] as const;
-export type Principal = { userId: string; tenantId: string };
+export type Principal = { userId: string; tenantId: string; isOperator?: boolean };
 export type DemoUser = { id: string; name: string; tenantId: string; tenantName: string; caseId: string };
 export type SupportCase = {
   id: string; owner: Principal; invoiceId: string;

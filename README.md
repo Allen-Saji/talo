@@ -3,11 +3,19 @@
 An embedded support assistant that remembers previous troubleshooting attempts,
 checks current facts, and prepares a useful handoff when an issue remains open.
 
-This repository provides a support demonstration with Neon case storage,
-Walrus preference memory, and optional OpenAI `gpt-6-luna` answers. Customers,
-payment evidence, and troubleshooting history remain synthetic. Model failures
-fall back to a deterministic answer. Tatum chain reads are verified separately;
-they do not establish that a transaction pays an invoice.
+The homepage introduces Talo. `/dashboard` lets verified users create one
+application per personal workspace, register up to five exact website origins,
+and save up to 5,000 characters of support documentation. Each application gets
+a stable public ID. Settings are private, scoped by server-derived identity, and
+protected against stale concurrent edits.
+
+The embeddable widget and documentation retrieval are not yet implemented.
+The homepage integration snippets describe the proposed interface.
+
+`/playground` contains the existing support demonstration with Neon case storage,
+Walrus memory, and optional OpenAI `gpt-6-luna` answers. It checks a historical
+Sui transfer against a synthetic invoice; it does not establish that a user paid
+Talo. Model failures fall back to a deterministic answer.
 
 ## Run locally
 
@@ -21,7 +29,7 @@ pnpm cf:typegen
 pnpm dev --host 127.0.0.1
 ```
 
-Open http://127.0.0.1:5173. Choose a demo customer and investigate the seeded access
+Open http://127.0.0.1:5173 for the homepage. Visit `/playground` to choose a demo customer and investigate the seeded access
 issue. Alex and Sam belong to the same synthetic organization; Jules belongs to
 another. Each signed session can retrieve only its own case and billing record.
 
@@ -43,11 +51,12 @@ allowlist the app's exact origin with `neon neon-auth domain add <origin>`.
 The UI offers Continue with Google first, with email/password signup, code
 verification/resend, password reset, and sign-out as alternatives. Google uses
 Neon shared OAuth credentials for hackathon testing and shows Neon branding;
-configure your own Google OAuth app before production. Root middleware exchanges
+configure your own Google OAuth app before production. Middleware on the homepage, dashboard, and playground exchanges
 Neon OAuth callback verifiers through the official SDK. Every protected API checks the managed session against the auth service
 without trusting the session-data cookie cache. Unverified users are rejected.
 
-Each verified identity receives a separate synthetic workspace and support case.
+Each verified identity receives a private workspace. Visiting the playground
+creates a separate synthetic support case.
 Tenant, user, and case IDs are derived on the server; signup cannot select an
 existing customer or join another tenant. Account names are stored in Postgres;
 emails and passwords are handled by Neon Auth and are not sent to Walrus/OpenAI.
@@ -164,8 +173,9 @@ submitted: rerun `verify`, rather than submitting another record. No check
 deletes memories. If you use port 5174, prefix commands with
 `TALO_LOCAL_URL=http://127.0.0.1:5174`.
 
-The support panel can explicitly save one of three structured preferences. It
-never uploads the question or a raw transcript. The server derives tenant/user
+The support panel can explicitly save one of three structured preferences and
+allowlisted troubleshooting steps with a reported outcome. It never uploads the
+question or a raw transcript. The server derives tenant/user
 scope, verifies case ownership, and enqueues an immutable event in Neon. Reusing
 an event ID with different content returns 409. Each preference expires from
 application eligibility after 30 days. New events share a global 50-per-UTC-day
@@ -188,7 +198,8 @@ unfinished jobs stop retrying with `RETRY_EXHAUSTED`; inspect their provider sta
 before explicitly resuming them. Deployment of a cron trigger can take time to
 propagate; enqueued work remains in Neon meanwhile.
 
-Recall uses the newest eligible preference for the owned case and requires an
+Recall uses the newest eligible preference and newest report for each attempt
+step in the owned case and requires an
 exact text/blob match with its saved database reference. Unknown references,
 expired or suppressed rows, and another user's memories are excluded. A newer
 pending preference prevents fallback to an older saved preference. "Stop using
@@ -232,6 +243,57 @@ there are no automatic paid retries. This is an attempt cap, not a dollar budget
 If configuration, quota, validation, or a provider call fails, the app returns its
 deterministic answer and labels the generation mode. The model cannot change
 access, send a ticket, or write memory.
+
+### Attempts and reviewed lessons
+
+Attempt records are customer reports, not proof of current payment or access.
+A newer pending report hides an older outcome for the same step. Retrieval checks
+owned case, eligibility, provider account, namespace, completed receipt, and exact
+text/blob identity before including a report in an answer.
+
+A saved report that switching workspaces or reopening the mobile app resolved an
+issue can be proposed as a lesson. The candidate contains only an allowlisted,
+redacted template, not raw customer text. An operator visits `/review` to mark the
+candidate redacted, approve it, or retire it. These are explicit human actions.
+Approval atomically creates a durable publication job and retires the previous
+approved lesson for that tenant/code. Unapproved, unsaved, expired, suppressed,
+retired, or wrong-version lessons cannot enter model context. Suppressing the
+source record also blocks the shared lesson. Sharing never crosses tenants.
+
+Set `TALO_OPERATOR_EMAILS` to exact verified account emails or `TALO_OPERATOR_IDS`
+to server-side user IDs. Role claims come from the verified session, never request
+JSON. Operators still need membership in the lesson's tenant. Each public account
+currently has its own workspace, so sharing between multiple public accounts
+requires an explicit future membership/invitation feature.
+
+`pnpm check:lessons` verifies review states, races, scope, and suppression on the
+isolated Neon branch, without writing to Walrus. Actual live lesson publication
+requires an operator's review and approval.
+
+### Historical sample invoice
+
+`lib/payments/sample.json` binds the demo to one historical public Sui Mainnet
+transfer and exact expected fields. Each owned synthetic case replays this same
+sample; no real invoice is settled and no balance or entitlement changes.
+
+The supported pattern is exactly one gas-coin split and one transfer to a single
+recipient. The matcher checks digest binding, chain/network, successful checkpointed
+execution, timestamp window, sender, recipient, canonical SUI coin type, exact u64
+amount, and consistent balance changes. Other transaction shapes are ambiguous.
+Amounts remain integer strings/BigInt throughout. This narrow demo does not claim
+to support arbitrary swaps, sponsored transactions, stablecoin checkouts, or refunds.
+
+The app calls Tatum from the deployed edge, caches only the public chain observation
+for five minutes, and caps fresh reads at 100 per UTC day globally. Missing or stale
+unrefreshable evidence becomes unverified, never a fixture match. Invoice-match,
+chain execution, and synthetic app access remain separate in the response and UI.
+Historical data can be pruned by providers; replacing the sample is a reviewed code
+change, not an automatic reassignment of a customer's payment.
+
+`pnpm check:continuity enqueue` checks the Tatum result against the official Sui
+node and enqueues one synthetic failed attempt. `pnpm check:continuity verify`
+checks durable completion, exact attempt/preference recall, and the sample match.
+Existing test references are reused from ignored local state.
 
 ### Tatum on Cloudflare's edge
 
@@ -324,8 +386,32 @@ synthetic test credentials in ignored `.wrangler/public-auth-check.json`. Only
 new reserved-domain test identities are marked verified by the setup script so
 session and isolation checks can run; real email verification is not bypassed by
 any application endpoint. The test includes one bounded OpenAI generation.
-The main app's public support surface still uses synthetic payment/access facts;
-it does not authorize money movement or entitlement changes.
+The main app uses a historical chain observation with a synthetic invoice and
+access scenario; it does not authorize money movement or entitlement changes.
 
 See [architecture](docs/architecture.md) for request boundaries, provider status,
-and the remaining production authentication and invoice-attribution work.
+and the remaining production provider configuration and broader checkout support.
+
+## Email flow checks
+
+`pnpm check:auth:mail start|resend|verify|reset-request|reset-complete` uses an
+explicitly supplied plus-address containing `+talo-auth-` for a disposable account.
+It will not reset a normal account. Passwords and state are stored only in ignored
+owner-only `.wrangler/` files. Supply codes through stdin or the ignored local
+`auth-check-code.txt` file; they are not logged. The shared sender remains a
+hackathon setting. Production requires a custom SMTP sender and Talo-owned Google
+OAuth credentials, configured in Neon rather than browser code.
+
+## Application onboarding checks
+
+`pnpm exec tsx scripts/check-applications.ts` applies migrations and tests storage
+isolation on the separate database in `.env.memory-schema-check`. It refuses the
+production database. `pnpm exec tsx scripts/check-onboarding-http.ts` checks the
+local server at port 5175 using existing synthetic accounts in the ignored
+`.wrangler/public-auth-check.json`; it sends no signup or verification emails.
+The local HTTP test saves a synthetic application in that test account.
+
+Apply migrations with `pnpm db:migrate` before running the new dashboard.
+Application origins are stored configuration for the future widget; they do not
+grant access or currently enforce a widget boundary. Documentation is stored as
+plain text and is not fetched from arbitrary URLs or sent to model providers.

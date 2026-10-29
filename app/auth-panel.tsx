@@ -22,7 +22,7 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: () => Promise<vo
     if (busy) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const result = await (await authClient()).signIn.social({ provider: "google", callbackURL: window.location.origin });
+      const result = await (await authClient()).signIn.social({ provider: "google", callbackURL: window.location.origin + window.location.pathname });
       if (result.error) throw new Error("Google sign-in could not start. Try again.");
     } catch { setError("Google sign-in could not start. Try again or use email."); }
     finally { setBusy(false); }
@@ -69,7 +69,7 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: () => Promise<vo
   }
   return <section aria-labelledby="signin-title">
     <h3 id="signin-title">{mode === "signup" ? "Create your account" : mode === "verify" ? "Verify your email" : mode === "reset" ? "Reset your password" : "Sign in to Talo"}</h3>
-    <p className="muted">Your account gets a private synthetic support case. Saved preferences are scoped to you.</p>
+    <p className="muted">Sign in to manage your Talo workspace.</p>
     {(mode === "signin" || mode === "signup") && <>
       <button type="button" disabled={busy} onClick={() => void googleSignIn()}>Continue with Google</button>
       <p className="muted">Or use your email and password</p>

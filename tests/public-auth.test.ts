@@ -28,3 +28,13 @@ describe("public identity boundary", () => {
     await expect(authenticateRequest(request, config)).rejects.toMatchObject({ status: 503, message: "Sign-in is unavailable." });
   });
 });
+
+it("grants operator authority only from a verified configured email", async () => {
+  const operatorConfig = readConfig({ TALO_PUBLIC_AUTH: "true", NEON_AUTH_BASE_URL: "https://auth.example.com/auth", NEON_AUTH_COOKIE_SECRET: "test-secret-at-least-thirty-two-characters", TALO_OPERATOR_EMAILS: "owner@example.com" });
+  getSession.mockResolvedValue({ data: { user: { id: "owner", email: "owner@example.com", emailVerified: true } }, error: null });
+  expect(await authenticateRequest(request, operatorConfig)).toMatchObject({ isOperator: true });
+  getSession.mockResolvedValue({ data: { user: { id: "other", email: "other@example.com", emailVerified: true } }, error: null });
+  expect(await authenticateRequest(request, operatorConfig)).not.toHaveProperty("isOperator");
+  getSession.mockResolvedValue({ data: { user: { id: "owner", email: "owner@example.com", emailVerified: false } }, error: null });
+  await expect(authenticateRequest(request, operatorConfig)).rejects.toMatchObject({ status: 403 });
+});

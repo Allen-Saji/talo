@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "one_approved_lesson" ON "lessons" USING btree ("tenantId","code","productVersion") WHERE "lessons"."state" = 'approved';
