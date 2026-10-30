@@ -1,0 +1,17 @@
+import {beforeEach,it,expect,vi} from 'vitest';
+const m=vi.hoisted(()=>({owner:vi.fn(),where:vi.fn(),limit:vi.fn(),identity:vi.fn(),returned:vi.fn()}));
+vi.mock('../lib/application-owner',()=>({ownedApplication:m.owner}));
+vi.mock('../lib/runtime',()=>({runtimeConfig:()=>({DATABASE_URL:'test'})}));
+vi.mock('../lib/widget/service',()=>({widgetHandler:(_config:unknown,action:(r:Request,c:unknown,a:unknown)=>Promise<Response>)=>async(r:Request)=>{try{return await action(r,{DATABASE_URL:'test'},{id:'app-a'});}catch(e){return Response.json({error:true},{status:(e as {status:number}).status??500});}}}));
+vi.mock('../lib/widget/identity',()=>({widgetIdentity:m.identity}));
+vi.mock('../lib/db/client',()=>({createDatabase:()=>({select:()=>({from:()=>({where:(condition:unknown)=>{m.where(condition);return {orderBy:()=>({limit:m.limit})};}})}),update:()=>({set:()=>({where:(condition:unknown)=>{m.where(condition);return{returning:m.returned};}})})})}));
+import {GET} from '../app/api/insights/route';
+import {POST} from '../app/api/widget/feedback/route';
+import {ApiError} from '../lib/http';
+import {PgDialect} from 'drizzle-orm/pg-core';
+beforeEach(()=>{vi.clearAllMocks();m.owner.mockResolvedValue({config:{DATABASE_URL:'test'},app:{id:'app-a',name:'Example'}});m.limit.mockResolvedValue([]);m.identity.mockResolvedValue({appId:'app-a',customerId:'customer-a',conversationId:'conv-a'});m.returned.mockResolvedValue([{id:'conv-a'}]);});
+it('requires ownership before querying analytics',async()=>{m.owner.mockRejectedValue(new ApiError(401,'AUTH','Sign in'));expect((await GET(new Request('https://talo.example/api/insights'))).status).toBe(401);expect(m.where).not.toHaveBeenCalled();});
+it('ignores caller-selected applications and scopes to owned app plus retention',async()=>{await GET(new Request('https://talo.example/api/insights?appId=victim&days=7'));const query=new PgDialect().sqlToQuery(m.where.mock.calls[0][0]);expect(query.params).toContain('app-a');expect(query.params).not.toContain('victim');expect(query.sql).toContain('expiresAt');});
+it('rejects unsupported analytics windows',async()=>{expect((await GET(new Request('https://talo.example/api/insights?days=999'))).status).toBe(400);expect(m.where).not.toHaveBeenCalled();});
+it('scopes feedback to token identity, unexpired thread and matching revision',async()=>{const r=await POST(new Request('https://talo.example/api/widget/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({outcome:'helped',revision:'2026-10-30T00:00:00.000Z'})}));expect(r.status).toBe(200);const q=new PgDialect().sqlToQuery(m.where.mock.calls[0][0]);expect(q.params).toEqual(expect.arrayContaining(['app-a','customer-a','conv-a']));expect(q.sql).toContain('updatedAt');expect(q.sql).toContain('expiresAt');});
+it('rejects stale feedback and identity injection',async()=>{m.returned.mockResolvedValue([]);const request=(body:unknown)=>new Request('https://talo.example/api/widget/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});expect((await POST(request({outcome:'helped',revision:'2026-10-30T00:00:00.000Z'}))).status).toBe(409);expect((await POST(request({outcome:'helped',revision:'2026-10-30T00:00:00.000Z',customerId:'victim'}))).status).toBe(400);});

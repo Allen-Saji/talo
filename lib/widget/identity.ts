@@ -12,7 +12,7 @@ export const accountFacts = z.object({
   accountStatus: z.enum(["active","pending","suspended"]).optional(),
   supportEmail: z.email().max(200).optional(),
 }).strict();
-const tokenSchema=z.object({appId:z.string(),customerId:z.string().max(100),conversationId:z.uuid(),origin:z.string(),verified:z.boolean(),version:z.string(),expiresAt:z.number(),facts:accountFacts}).strict();
+const tokenSchema=z.object({appId:z.string(),customerId:z.string().max(100),conversationId:z.uuid(),origin:z.string(),verified:z.boolean(),version:z.string(),expiresAt:z.number(),facts:accountFacts,automaticMemory:z.boolean().optional()}).strict();
 export type WidgetIdentity=z.infer<typeof tokenSchema>;
 export function hash(value:string){return createHash("sha256").update(value).digest("hex");}
 export function newApplicationKey(){return `talo_sk_${randomBytes(32).toString("base64url")}`;}

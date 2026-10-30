@@ -4,7 +4,7 @@ vi.mock("../lib/db/client",()=>({createDatabase:()=>({select:()=>({from:()=>({wh
 vi.mock("../lib/runtime",()=>({runtimeConfig:()=>({DATABASE_URL:"test",OPENAI_API_KEY:"test",NEON_AUTH_COOKIE_SECRET:"synthetic-cookie-secret-long-enough-for-test"})}));
 vi.mock("../lib/providers/openai",()=>({supportModel:"gpt-6-luna",reserveSupportGeneration:mock.reserve}));
 vi.mock("../lib/widget/answer",async()=>({...await vi.importActual<typeof import('../lib/widget/answer')>("../lib/widget/answer"),generateDocumentationAnswer:mock.model}));
-vi.mock("../lib/widget/state",()=>({conversationHistory:async()=>[],recordConversation:async()=>{}}));
+vi.mock("../lib/widget/state",()=>({conversationHistory:async()=>[],recordConversation:async()=>({updatedAt:new Date("2026-10-30T00:00:00.000Z")})}));
 vi.mock("../lib/widget/identity",async()=>({...await vi.importActual<typeof import('../lib/widget/identity')>("../lib/widget/identity"),widgetIdentity:async()=>({verified:false,appId:"app-test",customerId:"anonymous",conversationId:"test",facts:{}})}));
 import { GET as config } from "../app/api/widget/config/route";
 import { POST, OPTIONS } from "../app/api/widget/chat/route";

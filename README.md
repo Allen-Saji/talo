@@ -496,3 +496,17 @@ Imports require a verified account and same-origin requests, with 30 import/chec
 Website fetching runs in the service-binding-only `talo-knowledge-import` Worker with no secrets, storage or private-network bindings. It rejects IP-literal/private/reserved DNS destinations, credential-bearing URLs, custom ports and redirects; it forwards no authentication or cookies, executes no JavaScript, and bounds fetch time and response size. DNS validation is not DNS pinning; the separate Worker and its lack of private access are part of the isolation boundary. Do not add private-network bindings or secrets to that Worker. Deploy it with `wrangler deploy --config wrangler.knowledge-import.jsonc` before deploying the main app that binds it.
 
 The embedded documentation model has no tools and may only select an exact passage from the approved reference text. Free-form model prose is discarded. Verified account answers are resolved separately and account facts are not mixed into document prompts. This limits prompt-injection impact; it does not guarantee that every misleading or malicious passage is detected. Extracted sources are displayed as text, never executed HTML.
+
+### Customer insights
+
+Owners can open `/insights` for 7-day or 30-day UTC views of their unexpired conversations: daily volume, distinct verified customers, repeat contacts, current human-help requests, customer feedback, and topic groups with conversation evidence. Anonymous threads count toward volume but not distinct customers. At most the latest 2,000 threads are analyzed, with a visible notice when the result is truncated.
+
+Topics use deterministic English keyword rules on the first retained question, not model-generated root-cause claims. Suggestions are fixed investigation prompts shown after three matching conversations. Customer text cannot introduce new instructions or recommendations. No geography or behavioral tracking is collected.
+
+Widget customers can choose This helped or Still stuck after a response. Outcomes belong to that exact conversation revision; new messages and operator replies clear previous feedback. Operator resolution remains a separate workflow status. Migration 0009 adds nullable feedback fields; old conversations begin with unknown outcomes.
+
+### Public domains
+
+Talo is available at https://talo.allensaji.dev. The Vercel project `talo-site` uses `hosting/vercel/vercel.json` to route requests to the existing Cloudflare Worker. Deploy that directory as a static Vercel project with no build command. The apex domain and unrelated DNS records remain separate.
+
+The auth proxy and OAuth middleware recognize only the exact custom hostname for this Worker. Keep the same hostname in Neon's trusted-domain list. Arbitrary forwarded hosts are ignored and foreign origins remain rejected. The original workers.dev address remains supported.

@@ -54,7 +54,7 @@ export default function Dashboard() {
     catch { setError("Could not sign out. Try again."); } finally { setBusy(false); }
   }
   async function copyId() { if (!app) return; try { await navigator.clipboard.writeText(app.id); setCopied(true); } catch { setError("Copy is unavailable. Select the app ID and copy it manually."); } }
-  return <main className={`setup ${state === "signin" ? "setup-signin" : ""}`}><header className="setup-nav"><a href="/" className="setup-logo">talo.</a>{state === "ready" && app && <><a href="/docs/agent">Integration</a><a href="/inbox">Conversations</a></>}{state === "ready" && <button className="secondary" disabled={busy} onClick={signOut}>Sign out</button>}</header>
+  return <main className={`setup ${state === "signin" ? "setup-signin" : ""}`}><header className="setup-nav"><a href="/" className="setup-logo">talo.</a>{state === "ready" && app && <><a href="/docs/agent">Integration</a><a href="/inbox">Conversations</a><a href="/insights">Insights</a></>}{state === "ready" && <button className="secondary" disabled={busy} onClick={signOut}>Sign out</button>}</header>
     <div className="setup-heading"><p className="setup-kicker">YOUR WORKSPACE</p><h1>{app ? "Your application, connected." : "Make Talo yours."}</h1><p>Set up your application and give Talo the knowledge your customers need.</p></div>
     {state === "loading" && <LoadingIndicator />}
     {state === "signin" && <div className="setup-auth"><AuthPanel onSignedIn={load} /></div>}

@@ -5,7 +5,7 @@ import { runtimeConfig } from "../../../../lib/runtime";
 import { createDatabase } from "../../../../lib/db/client";
 import { applications, applicationCredentials } from "../../../../lib/db/schema";
 import { accountFacts, hash, matchesKey, issueWidgetIdentity } from "../../../../lib/widget/identity";
-const input=z.object({appId:z.string().max(100),customerId:z.string().trim().min(1).max(200),origin:z.string().max(250),facts:accountFacts.default({})}).strict();
+const input=z.object({appId:z.string().max(100),customerId:z.string().trim().min(1).max(200),origin:z.string().max(250),facts:accountFacts.default({}),automaticMemory:z.boolean().default(false)}).strict();
 export const POST=api(async request=>{
  // Server-to-server only. Never permit browser code to use the application secret.
  if(request.headers.has("Origin"))throw new ApiError(403,"SERVER_ONLY","Call this endpoint from your backend.");
@@ -20,6 +20,6 @@ export const POST=api(async request=>{
  const counter=`sessions:${app.id}:${new Date().toISOString().slice(0,10)}`;
  const reserved=await db.execute(sql`INSERT INTO model_daily_usage(day,requests) VALUES(${counter},1) ON CONFLICT(day) DO UPDATE SET requests=model_daily_usage.requests+1 WHERE model_daily_usage.requests<200 RETURNING requests`);
  if(!reserved.rows.length)throw new ApiError(429,"SESSION_LIMIT","Daily support-session limit reached.");
- const token=issueWidgetIdentity(config,{appId:app.id,customerId:hash(`${app.id}:${data.customerId}`),origin:data.origin,verified:true,version:credential.version,facts:data.facts});
+ const token=issueWidgetIdentity(config,{appId:app.id,customerId:hash(`${app.id}:${data.customerId}`),origin:data.origin,verified:true,version:credential.version,facts:data.facts,automaticMemory:data.automaticMemory});
  return json({token,expiresIn:900});
 });

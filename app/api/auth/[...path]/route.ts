@@ -1,3 +1,4 @@
+import { publicRequestUrl } from "../../../../lib/public-origin";
 import { managedAuth } from "../../../../lib/public-auth";
 import { runtimeConfig } from "../../../../lib/runtime";
 import { ApiError, json, requireSameOrigin } from "../../../../lib/http";
@@ -10,7 +11,7 @@ async function handler(request: Request, context: Context) {
     if (request.method !== "GET") requireSameOrigin(request);
     const auth = await managedAuth(config);
     const methods = auth.handler();
-    return methods[request.method as keyof typeof methods](request, context);
+    return methods[request.method as keyof typeof methods](new Request(publicRequestUrl(request),request), context);
   } catch (error) { if (error instanceof ApiError) return json({ error: { message: error.message } }, error.status); return json({ error: { message: "Sign-in is temporarily unavailable." } }, 503); }
 }
 export const GET = handler;

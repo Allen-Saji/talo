@@ -25,3 +25,6 @@ Anonymous sessions do not have persistent memory. Verified customers may remembe
 Conversations are visible to the owning application's team for30 days, with hourly bounded expiry purge. Team inbox: /inbox. Replies are fetched by Check for reply, not email or push notifications.
 Daily caps:100 widget questions per application,200 server sessions per application,20 AI attempts shared by this deployment. Never reset counters automatically.
 Origin checks protect browser embedding, not private account identity. Never put a server key in browser code, accept browser-supplied customer IDs as verified identity, or claim a support answer changed account access.
+
+## Customer insights
+Owners can review /insights for conversation volume, verified-customer counts, repeat contacts, current handoffs and explicit customer feedback. Topics are English keyword groups with evidence links, not AI root-cause conclusions. Widget feedback is revision-bound and resets on a new message. No geography is collected.
