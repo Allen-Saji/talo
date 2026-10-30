@@ -17,5 +17,5 @@ export const GET = api(async () => json({ application: await (await store()).get
 export const PUT = api(async request => {
   requireSameOrigin(request);
   const ownedStore = await store();
-  return json({ application: await ownedStore.save(await parseBody(request, applicationInput, 32768)) });
+  return json({ application: await ownedStore.save(await parseBody(request, applicationInput, 240000)) });
 });

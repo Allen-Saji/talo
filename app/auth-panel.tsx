@@ -1,4 +1,5 @@
 "use client";
+import { ButtonSpinner } from "./loading-indicator";
 import { useState, type FormEvent } from "react";
 let client: ReturnType<typeof import("@neondatabase/auth/next").createAuthClient> | undefined;
 export async function authClient() {
@@ -67,19 +68,19 @@ export default function AuthPanel({ onSignedIn }: { onSignedIn: () => Promise<vo
     } catch (error) { setError(error instanceof Error ? error.message : "A code could not be sent."); }
     finally { setBusy(false); }
   }
-  return <section aria-labelledby="signin-title">
+  return <section className="auth-panel" aria-labelledby="signin-title">
     <h3 id="signin-title">{mode === "signup" ? "Create your account" : mode === "verify" ? "Verify your email" : mode === "reset" ? "Reset your password" : "Sign in to Talo"}</h3>
     <p className="muted">Sign in to manage your Talo workspace.</p>
     {(mode === "signin" || mode === "signup") && <>
-      <button type="button" disabled={busy} onClick={() => void googleSignIn()}>Continue with Google</button>
-      <p className="muted">Or use your email and password</p>
+      <button className="auth-google" type="button" disabled={busy} onClick={() => void googleSignIn()}><img src="/google-sign-in-logo.png" width={20} height={20} alt="" aria-hidden="true" />Continue with Google</button>
+      <div className="auth-divider"><span>or continue with email</span></div>
     </>}
     <form onSubmit={submit}>
       {mode === "signup" && <><label htmlFor="auth-name">Name</label><input id="auth-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} required disabled={busy} autoComplete="name" /></>}
       <label htmlFor="auth-email">Email</label><input id="auth-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={busy || mode === "verify"} autoComplete="email" />
       {mode !== "verify" && <><label htmlFor="auth-password">{mode === "reset" ? "New password" : "Password"}</label><input id="auth-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} maxLength={128} required disabled={busy} autoComplete={mode === "signin" ? "current-password" : "new-password"} /></>}
       {(mode === "verify" || mode === "reset") && <><label htmlFor="auth-code">Email code</label><input id="auth-code" value={otp} onChange={(e) => setOtp(e.target.value)} inputMode="numeric" autoComplete="one-time-code" required maxLength={10} disabled={busy} /></>}
-      <button disabled={busy}>{busy ? "Working..." : mode === "signup" ? "Create account" : mode === "verify" ? "Verify email" : mode === "reset" ? "Reset password" : "Sign in"}</button>
+      <button disabled={busy} aria-busy={busy}>{busy && <ButtonSpinner />}{busy ? "Please wait" : mode === "signup" ? "Create account" : mode === "verify" ? "Verify email" : mode === "reset" ? "Reset password" : "Sign in"}</button>
     </form>
     <div className="memory-actions">
       <button type="button" className="secondary" disabled={busy} onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(""); setNotice(""); }}>{mode === "signin" ? "Create an account" : "Back to sign in"}</button>

@@ -1,0 +1,6 @@
+Google Sign-In logo from the official Google Identity branding asset bundle.
+https://developers.google.com/identity/branding-guidelines
+https://developers.google.com/static/identity/images/signin-assets.zip
+Android + Web, Light, icon-only Square PNG @4x.
+Cropped the surrounding button frame; logo colors and proportions unchanged.
+Retrieved 2026-10-30.

@@ -1,0 +1,11 @@
+"use client";
+import LoadingIndicator, { ButtonSpinner } from "../loading-indicator";
+import { useEffect,useState } from "react";
+export default function ServerSetup(){
+ const [loading,setLoading]=useState(true);
+ const [configured,setConfigured]=useState(false);const [confirmed,setConfirmed]=useState(false);const [key,setKey]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
+ useEffect(()=>{fetch('/api/applications/key').then(async response=>{if(!response.ok)throw Error();const data=await response.json() as {configured:boolean};setConfigured(data.configured);}).catch(()=>setError('Could not check server-key status.')).finally(()=>setLoading(false));},[]);
+ async function generate(){if(!confirmed||busy)return;setBusy(true);setError('');setKey('');try{const response=await fetch('/api/applications/key',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const data=await response.json() as {key?:string};if(!response.ok||!data.key)throw Error();setKey(data.key);setConfigured(true);setConfirmed(false);}catch{setError('Could not generate a server key. Retry when ready.');}finally{setBusy(false);}}
+ if(loading)return <LoadingIndicator compact label="Checking connection" />;
+ return <section className="setup-next"><h3>Connect customer identity</h3><p className="setup-help">Your backend can identify a signed-in customer and supply read-only account facts. Browser code gets a 15-minute session, never this key.</p><label className="setup-toggle"><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>{configured?'I understand that rotating revokes the current key and verified support sessions.':'I will store the key only on my backend.'}</label><button className="secondary" disabled={!confirmed||busy} onClick={generate}>{busy && <ButtonSpinner />}{busy?'Generating':configured?'Rotate server key':'Generate server key'}</button>{key&&<><label htmlFor="server-key">Copy now. This key is shown once.</label><textarea id="server-key" rows={3} readOnly value={key}/><button className="secondary" onClick={()=>setKey('')}>Hide key</button></>}{error&&<p role="alert">{error}</p>}<p><a href="/docs/server">Server integration guide</a></p></section>;
+}

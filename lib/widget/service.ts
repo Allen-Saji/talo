@@ -18,7 +18,7 @@ export async function widgetApplication(request: Request, config: Config) {
   assertWidgetOrigin(app.origins,request.headers.get("Origin"));
   return app;
 }
-export function cors(origin: string) { return {"Access-Control-Allow-Origin":origin,"Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type",Vary:"Origin","Cache-Control":"no-store"}; }
+export function cors(origin: string) { return {"Access-Control-Allow-Origin":origin,"Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type, Authorization",Vary:"Origin","Cache-Control":"no-store"}; }
 // Public app IDs and Origin checks are not authentication. Only explicitly published support docs are available here.
 export async function reserveWidgetRequest(config: Config, appId: string) {
   if(!config.DATABASE_URL)return false;

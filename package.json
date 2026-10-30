@@ -14,6 +14,9 @@
     "@neondatabase/serverless": "1.2.0",
     "@vinext/cloudflare": "1.2.1",
     "drizzle-orm": "0.45.4",
+    "htmlparser2": "^12.0.0",
+    "ipaddr.js": "^2.5.0",
+    "pdfjs-dist": "6.4.299",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-server-dom-webpack": "19.3.1",
@@ -63,7 +66,9 @@
     "check:auth:mail": "tsx scripts/check-auth-mail.ts",
     "check:applications": "tsx scripts/check-applications.ts",
     "check:onboarding": "tsx scripts/check-onboarding-http.ts",
-    "check:widget": "tsx scripts/check-widget-http.ts"
+    "check:widget": "tsx scripts/check-widget-http.ts",
+    "check:customers": "tsx scripts/check-customer-continuity.ts",
+    "check:customers:http": "tsx scripts/check-customer-http.ts"
   },
   "engines": {
     "node": ">=24.22.1 <25"

@@ -1,3 +1,4 @@
+import { KNOWLEDGE_LIMIT, scanKnowledge } from "./knowledge/safety";
 import { z } from "zod";
 
 export const originSchema = z.string().trim().max(250).transform((value, ctx) => {
@@ -11,7 +12,7 @@ export const originSchema = z.string().trim().max(250).transform((value, ctx) =>
 export const applicationInput = z.object({
   name: z.string().trim().min(1).max(80),
   origins: z.array(originSchema).min(1).max(5).transform(values => [...new Set(values)]),
-  documentation: z.string().trim().min(30).max(5000),
+  documentation: z.string().trim().min(30).max(KNOWLEDGE_LIMIT).refine(value => scanKnowledge(value).length === 0, "Remove flagged instructions, hidden content, or credentials from the support documentation."),
   widgetEnabled: z.boolean().default(false),
   revision: z.number().int().min(0),
 }).strict();

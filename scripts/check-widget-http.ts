@@ -12,8 +12,9 @@ async function main(){
  const current=await(await owned("GET")).json() as {application:{revision:number}|null};
  const settings={name:"Integration test product",origins:[host],documentation:"Invite a teammate by opening Settings and choosing Team. The Team menu is inside your workspace Settings. Select Invite member and enter their email address.\n\nExport reports using the Export button on the Reports page.",widgetEnabled:true,revision:current.application?.revision??0};
  const created=await owned("PUT",settings);assert.equal(created.status,200);let app=(await created.json() as {application:{id:string;revision:number}}).application;
- const request=(path:string,origin=host,method="GET",body?:unknown)=>fetch(`${base}/api/widget/${path}?appId=${app.id}`,{method,headers:{Origin:origin,"Content-Type":"application/json"},...(body?{body:JSON.stringify(body)}:{})});
- const config=await request("config");assert.equal(config.status,200);assert.equal(config.headers.get("Access-Control-Allow-Origin"),host);assert.deepEqual(await config.json(),{name:settings.name});
+ let widgetToken='';
+ const request=(path:string,origin=host,method="GET",body?:unknown)=>fetch(`${base}/api/widget/${path}?appId=${app.id}`,{method,headers:{Origin:origin,"Content-Type":"application/json",...(widgetToken?{Authorization:`Bearer ${widgetToken}`}:{})},...(body?{body:JSON.stringify(body)}:{})});
+ const config=await request("config");assert.equal(config.status,200);assert.equal(config.headers.get("Access-Control-Allow-Origin"),host);const configData=await config.json() as {name:string;sessionToken:string};assert.equal(configData.name,settings.name);assert.ok(configData.sessionToken);widgetToken=configData.sessionToken;
  assert.equal((await request("chat",host,"OPTIONS")).status,204);
  assert.equal((await request("chat","https://unregistered.example","POST",{message:"invite teammates"})).status,403);
  const answerResponse=await request("chat",host,"POST",{message:"How do I invite a teammate?",history:[]});assert.equal(answerResponse.status,200);const answer=await answerResponse.json() as {answer:string;source:string;generation:string};assert.ok(settings.documentation.includes(answer.source));assert.match(answer.answer,/Team|Settings/);
