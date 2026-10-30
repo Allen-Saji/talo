@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingIndicator, { ButtonSpinner } from "./loading-indicator";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { DemoUser } from "../lib/demo/fixtures";
 import type { SupportAnswer } from "../lib/support";
@@ -95,9 +96,9 @@ export default function SupportPanel() {
     } catch (error) { setError(error instanceof Error ? error.message : "The preference could not be updated."); }
     finally { setBusy(false); }
   }
+  if (loadingSession) return <LoadingIndicator label="Preparing your support session" />;
   return <section className="support" aria-labelledby="support-title">
     <div className="section-heading"><h2 id="support-title">Your support case</h2><span className="muted">Synthetic checkout app</span></div>
-    {loadingSession && <p role="status">Loading your session...</p>}
     {!loadingSession && publicMode && !selected && <AuthPanel onSignedIn={refreshSession} />}
     {publicMode && selected && <p>Signed in as {selected.name}. <button type="button" className="secondary" disabled={busy} onClick={() => void signOut()}>Sign out</button></p>}
     {!publicMode && !loadingSession && <><label htmlFor="customer">Demo customer</label>
@@ -108,7 +109,7 @@ export default function SupportPanel() {
     {(!publicMode || selected) && <form onSubmit={submit}>
       <label htmlFor="question">What do you need help with?</label>
       <textarea id="question" value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={2000} rows={3} required disabled={busy} />
-      <button type="submit" disabled={!selected || busy}>{busy ? "Working..." : "Investigate access"}</button>
+      <button type="submit" disabled={!selected || busy}>{busy && <ButtonSpinner />}{busy ? "Working on your request" : "Investigate access"}</button>
     </form>}
     {selected && <fieldset disabled={busy}>
       <legend>Remember a support preference</legend>
