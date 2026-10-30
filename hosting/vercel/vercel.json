@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "https://talo.metropolis-frontend.workers.dev/"
+    },
+    {
+      "source": "/:path+",
+      "destination": "https://talo.metropolis-frontend.workers.dev/:path+"
+    }
+  ]
+}

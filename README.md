@@ -504,3 +504,9 @@ Owners can open `/insights` for 7-day or 30-day UTC views of their unexpired con
 Topics use deterministic English keyword rules on the first retained question, not model-generated root-cause claims. Suggestions are fixed investigation prompts shown after three matching conversations. Customer text cannot introduce new instructions or recommendations. No geography or behavioral tracking is collected.
 
 Widget customers can choose This helped or Still stuck after a response. Outcomes belong to that exact conversation revision; new messages and operator replies clear previous feedback. Operator resolution remains a separate workflow status. Migration 0009 adds nullable feedback fields; old conversations begin with unknown outcomes.
+
+### Public domains
+
+Talo is available at https://talo.allensaji.dev. The Vercel project `talo-site` uses `hosting/vercel/vercel.json` to route requests to the existing Cloudflare Worker. Deploy that directory as a static Vercel project with no build command. The apex domain and unrelated DNS records remain separate.
+
+The auth proxy and OAuth middleware recognize only the exact custom hostname for this Worker. Keep the same hostname in Neon's trusted-domain list. Arbitrary forwarded hosts are ignored and foreign origins remain rejected. The original workers.dev address remains supported.

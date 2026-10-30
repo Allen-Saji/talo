@@ -1,3 +1,4 @@
+import { publicRequestUrl } from "./lib/public-origin";
 import { NextRequest, NextResponse } from "next/server";
 import { managedAuth } from "./lib/public-auth";
 import { runtimeConfig } from "./lib/runtime";
@@ -6,6 +7,7 @@ import { runtimeConfig } from "./lib/runtime";
 // Normal visits remain public so the sign-in screen never redirects to itself.
 export async function middleware(request: NextRequest) {
   if (!request.nextUrl.searchParams.has("neon_auth_session_verifier")) return NextResponse.next();
+  request = new NextRequest(publicRequestUrl(request), request);
   const config = runtimeConfig();
   if (!config.TALO_PUBLIC_AUTH) return NextResponse.redirect(new URL("/", request.url));
   try { return await (await managedAuth(config)).middleware({ loginUrl: "/auth/sign-in" })(request); }

@@ -1,3 +1,4 @@
+import { publicRequestUrl } from "./public-origin";
 import type { z } from "zod";
 
 export class ApiError extends Error {
@@ -19,7 +20,7 @@ export function api(handler: (request: Request) => Promise<Response>) {
   };
 }
 export function requireSameOrigin(request: Request) {
-  if (request.headers.get("Origin") !== new URL(request.url).origin) {
+  if (request.headers.get("Origin") !== publicRequestUrl(request).origin) {
     throw new ApiError(403, "ORIGIN_REJECTED", "Use this application's own page.");
   }
 }
