@@ -1,0 +1,27 @@
+# Talo agent resources
+
+- [Start integration](/agent/setup): Full implementation instructions for a coding agent. Optionally supply ?appId=YOUR_PUBLIC_APP_ID. No login or secret required to read.
+- [Agent setup overview](/docs/agent): How to get the application-specific link.
+- [Connection checker](/integrations/check.mjs): Inspect, then run with Node 22+ and your local environment.
+- [Backend helper](/integrations/server-session.mjs): Adapt to the host authentication and server runtime.
+- [API schema](/openapi.json): Endpoint contracts.
+
+# Talo integration guide
+
+Talo adds a documentation-based support widget to a website. Start at /docs/widget and /docs/server. Machine-readable endpoint schemas are at /openapi.json.
+
+## Setup
+1. Sign in to /dashboard; create an application and register exact HTTPS origins (HTTP localhost is allowed).
+2. Add customer-facing documentation. Explicitly enable publication and save.
+3. Copy the generated widget.js script tag. The app ID is public; the server key is not.
+4. For identified support, generate a server key in the dashboard and store it only on the backend.
+5. Implement an authenticated backend endpoint that derives the customer ID and allowed facts from trusted application state. POST /api/server/sessions without an Origin header, using Authorization: Bearer <server-key>.
+6. Return the short-lived token only to the authenticated customer. On talo:ready call window.Talo.identify(token). Call window.Talo.clearIdentity() on logout/account change.
+7. Verify two-customer isolation, wrong-origin rejection, expired tokens, key rotation, memory opt-in/forget, and team replies before release.
+
+## Constraints
+Tokens expire after15 minutes. They contain readable account facts, so do not include secrets. Supported facts: plan, subscriptionStatus, accountStatus, supportEmail. No actions or financial transactions are permitted.
+Anonymous sessions do not have persistent memory. Verified customers may remember their last3 exchanges for30 days. Widget memory is scoped Neon storage, separate from playground Walrus storage.
+Conversations are visible to the owning application's team for30 days, with hourly bounded expiry purge. Team inbox: /inbox. Replies are fetched by Check for reply, not email or push notifications.
+Daily caps:100 widget questions per application,200 server sessions per application,20 AI attempts shared by this deployment. Never reset counters automatically.
+Origin checks protect browser embedding, not private account identity. Never put a server key in browser code, accept browser-supplied customer IDs as verified identity, or claim a support answer changed account access.

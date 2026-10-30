@@ -1,0 +1,207 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Talo server integration",
+    "version": "1.0.0",
+    "description": "Read-only customer support sessions. Your backend must authenticate the customer before calling."
+  },
+  "paths": {
+    "/api/server/sessions": {
+      "post": {
+        "operationId": "createSupportSession",
+        "description": "Server-to-server only; requests with an Origin header are rejected. Tokens expire in900 seconds and are tied to the supplied registered origin. Key rotation revokes sessions.",
+        "security": [
+          {
+            "serverKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "appId",
+                  "customerId",
+                  "origin"
+                ],
+                "properties": {
+                  "appId": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "customerId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "origin": {
+                    "type": "string",
+                    "maxLength": 250
+                  },
+                  "facts": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "plan": {
+                        "type": "string",
+                        "maxLength": 80
+                      },
+                      "subscriptionStatus": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "trialing",
+                          "past_due",
+                          "canceled",
+                          "none"
+                        ]
+                      },
+                      "accountStatus": {
+                        "type": "string",
+                        "enum": [
+                          "active",
+                          "pending",
+                          "suspended"
+                        ]
+                      },
+                      "supportEmail": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 200
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Customer-scoped session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "token",
+                    "expiresIn"
+                  ],
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "expiresIn": {
+                      "type": "integer",
+                      "const": 900
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Invalid server key"
+          },
+          "403": {
+            "description": "Browser request, disabled widget, or unregistered origin"
+          },
+          "429": {
+            "description": "Daily session cap"
+          },
+          "503": {
+            "description": "Service unavailable"
+          }
+        }
+      }
+    },
+    "/api/widget/chat": {
+      "post": {
+        "operationId": "askSupport",
+        "parameters": [
+          {
+            "name": "appId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "customerSession": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "message"
+                ],
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "remember": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Verified customers only. Save last three exchanges for30 days."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Answer with source, generation, conversationId, needsHuman"
+          },
+          "401": {
+            "description": "Invalid, expired or revoked session"
+          },
+          "403": {
+            "description": "Wrong origin or unverified memory request"
+          },
+          "429": {
+            "description": "Application quota exhausted"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "serverKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Dashboard-issued talo_sk_ key. Backend only."
+      },
+      "customerSession": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Short-lived token from the server session endpoint or anonymous widget config."
+      }
+    }
+  }
+}
