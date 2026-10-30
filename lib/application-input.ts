@@ -12,7 +12,8 @@ export const applicationInput = z.object({
   name: z.string().trim().min(1).max(80),
   origins: z.array(originSchema).min(1).max(5).transform(values => [...new Set(values)]),
   documentation: z.string().trim().min(30).max(5000),
+  widgetEnabled: z.boolean().default(false),
   revision: z.number().int().min(0),
 }).strict();
 export type ApplicationInput = z.input<typeof applicationInput>;
-export type Application = { id: string; tenantId: string; name: string; origins: string[]; documentation: string; revision: number; createdAt: string; updatedAt: string };
+export type Application = { id: string; tenantId: string; name: string; origins: string[]; documentation: string; widgetEnabled: boolean; revision: number; createdAt: string; updatedAt: string };
