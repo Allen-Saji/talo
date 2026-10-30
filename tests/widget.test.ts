@@ -31,3 +31,9 @@ it("accepts exact citations and rejects invented ones",async()=>{
 it("bounds model output and propagates failure for deterministic fallback",async()=>{
  await expect(generateDocumentationAnswer(readConfig({OPENAI_API_KEY:"test"}),docs,{message:"invite?",history:[]},vi.fn().mockResolvedValue(new Response("x".repeat(66000))))).rejects.toThrow("RESPONSE_TOO_LARGE");
 });
+it('quotes an older user message only for explicit recall and never invents it',async()=>{
+ const config=readConfig({OPENAI_API_KEY:'test'});const history=[{role:'user' as const,text:'I already tried refreshing the export page.'},...Array.from({length:10},()=>({role:'assistant' as const,text:'Later conversation.'}))];
+ const transport=()=>Promise.resolve(response('Untrusted model prose','I already tried refreshing the export page.'));
+ const recalled=await generateDocumentationAnswer(config,docs,{message:'What did I already try?',history},transport as typeof fetch);expect(recalled.answer).toBe('Earlier, you said:\n\nI already tried refreshing the export page.');
+ const refused=await generateDocumentationAnswer(config,docs,{message:'What is your refund policy?',history},transport as typeof fetch);expect(refused.generation).toBe('unavailable');
+});

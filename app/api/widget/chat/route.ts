@@ -1,3 +1,4 @@
+import { reserveContextBudget } from "../../../../lib/widget/budget";
 import { runtimeConfig } from "../../../../lib/runtime";
 import { ApiError, json, parseBody } from "../../../../lib/http";
 import { widgetHandler, reserveWidgetRequest } from "../../../../lib/widget/service";
@@ -11,11 +12,11 @@ export const POST=widgetHandler(runtimeConfig,async(request,config,app)=>{
   const input=await parseBody(request,chatInput,65536);
   if(input.remember&&!identity.verified)throw new ApiError(403,"IDENTITY_REQUIRED","Sign in to remember conversations across visits.");
   if(!await reserveWidgetRequest(config,app.id))throw new ApiError(429,"RATE_LIMITED","Support is temporarily unavailable. Please try again later.");
-  const history=await conversationHistory(config,identity,input.remember);
+  const history=await conversationHistory(config,identity,input.remember||identity.automaticMemory===true);
   const knowledge=app.documentation;
   const direct=accountAnswer(input.message,identity);
   let answer=direct??documentationFallback(knowledge,input.message);
-  if(!direct&&await reserveSupportGeneration(config)){
+  if(!direct&&await reserveContextBudget(config,app.id,knowledge,{...input,history})&&await reserveSupportGeneration(config)){
     try { answer=await generateDocumentationAnswer(config,knowledge,{...input,history}); } catch { /* Use the scoped excerpt fallback. */ }
   }
   const needsHuman=answer.generation==="unavailable";
