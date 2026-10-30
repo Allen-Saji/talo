@@ -1,0 +1,33 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
+import { eq } from "drizzle-orm";
+import { readLocalEnv } from "./local-env.mjs";
+import { createDatabase } from "../lib/db/client";
+import { tenants,applications,applicationCredentials,customerMemory,conversations } from "../lib/db/schema";
+import { readConfig } from "../lib/config";
+import { hash,newApplicationKey,issueWidgetIdentity,verifyWidgetToken,widgetIdentity } from "../lib/widget/identity";
+import { purgeExpiredWidgetData } from "../lib/widget/retention";
+import { remembered,forgetMemory,recordConversation,conversationHistory } from "../lib/widget/state";
+async function main(){
+ const env=parseEnv(readFileSync('.env.memory-schema-check','utf8'));assert.notEqual(new URL(env.DATABASE_URL!).hostname.replace('-pooler',''),new URL(readLocalEnv().DATABASE_URL).hostname.replace('-pooler',''));
+ const config=readConfig({...env,NEON_AUTH_COOKIE_SECRET:'synthetic-cookie-secret-for-integration-only'});const db=createDatabase(env.DATABASE_URL!);const suffix=randomUUID();const appId=`app_${randomUUID()}`;const tenantId=`continuity-${suffix}`;
+ await db.insert(tenants).values({id:tenantId,name:'Synthetic continuity check'});await db.insert(applications).values({id:appId,tenantId,name:'Test',origins:['https://example.com'],documentation:'Synthetic support documentation for testing only.',widgetEnabled:true});
+ await db.insert(applicationCredentials).values({appId,keyHash:hash(newApplicationKey()),version:'v1'});
+ const claims={appId,customerId:hash('customer-a'),origin:'https://example.com',verified:true,version:'v1',facts:{}};
+ const token=issueWidgetIdentity(config,claims);const a=verifyWidgetToken(config,token,appId,claims.origin);const b={...a,customerId:hash('customer-b'),conversationId:randomUUID()};
+ assert.deepEqual(await remembered(config,a),[]);
+ await recordConversation(config,a,'Already tried refreshing.','Try opening Settings.',true,false);
+ assert.equal((await remembered(config,a)).length,2);assert.deepEqual(await remembered(config,b),[]);assert.deepEqual(await remembered(config,{...a,appId:'other-app'}),[]);
+ const returning={...a,conversationId:randomUUID()};assert.equal((await conversationHistory(config,returning,true)).length,2);assert.deepEqual(await conversationHistory(config,returning,false),[]);
+ await Promise.all([recordConversation(config,a,'Question 2','Answer 2',true,false),recordConversation(config,a,'Question 3','Answer 3',true,true)]);
+ const [stored]=await db.select().from(conversations).where(eq(conversations.id,a.conversationId));assert.equal((stored.messages as unknown[]).length,6);assert.equal(stored.status,'needs_human');
+ await forgetMemory(config,a);assert.deepEqual(await remembered(config,a),[]);
+ await recordConversation(config,a,'Question 4','Answer 4',true,false);await db.update(customerMemory).set({expiresAt:new Date(0)}).where(eq(customerMemory.appId,appId));assert.deepEqual(await remembered(config,a),[]);
+ await db.update(conversations).set({expiresAt:new Date(0)}).where(eq(conversations.id,a.conversationId));await purgeExpiredWidgetData(config);assert.equal((await db.select().from(customerMemory).where(eq(customerMemory.appId,appId))).length,0);assert.equal((await db.select().from(conversations).where(eq(conversations.id,a.conversationId))).length,0);
+ const req=new Request('https://talo.example/api/widget/chat',{headers:{Origin:claims.origin,Authorization:`Bearer ${token}`}});await widgetIdentity(req,config,appId);
+ await db.update(applicationCredentials).set({version:'v2'}).where(eq(applicationCredentials.appId,appId));await assert.rejects(widgetIdentity(req,config,appId),{status:401});
+ console.log('Isolated continuity passed: returning customer recall, cross-customer/app isolation, opt-in, concurrent transcript append, forget, expiry purge, key revocation.');
+}
+main().catch(()=>{console.error('Continuity integration failed; credentials and content hidden.');process.exitCode=1;});

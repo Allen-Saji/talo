@@ -82,3 +82,23 @@ export const lessons = pgTable("lessons", {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex("one_approved_lesson").on(table.tenantId, table.code, table.productVersion).where(sql`${table.state} = 'approved'`)]);
+
+export const applicationCredentials = pgTable("application_credentials", {
+  appId: text().primaryKey().references(() => applications.id),
+  keyHash: text().notNull(), version: text().notNull(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+export const customerMemory = pgTable("customer_memory", {
+  appId: text().notNull().references(() => applications.id), customerId: text().notNull(),
+  messages: jsonb().notNull(),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, table => [primaryKey({ columns: [table.appId, table.customerId] })]);
+export const conversations = pgTable("conversations", {
+  id: text().primaryKey(), appId: text().notNull().references(() => applications.id),
+  customerId: text().notNull(), verified: boolean().notNull(),
+  messages: jsonb().notNull(), status: text().notNull().default("open"),
+  expiresAt: timestamp({ withTimezone: true }).notNull(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, table => [index("conversation_inbox").on(table.appId, table.updatedAt)]);

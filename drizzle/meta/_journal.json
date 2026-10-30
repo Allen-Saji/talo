@@ -57,6 +57,13 @@
       "when": 1793336493644,
       "tag": "0007_wise_silver_centurion",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793337583489,
+      "tag": "0008_icy_juggernaut",
+      "breakpoints": true
     }
   ]
 }

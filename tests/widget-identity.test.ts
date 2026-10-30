@@ -1,0 +1,12 @@
+import { expect,it } from "vitest";
+import { readConfig } from "../lib/config";
+import { accountFacts,hash,issueWidgetIdentity,matchesKey,newApplicationKey,verifyWidgetToken } from "../lib/widget/identity";
+const config=readConfig({NEON_AUTH_COOKIE_SECRET:"test-only-secret-at-least-thirty-two-characters"});
+const claims={appId:"app-one",customerId:"customer-hash",origin:"https://app.example",verified:true,version:"v1",facts:{plan:"Pro"}};
+it("issues bounded app and origin specific sessions",()=>{const token=issueWidgetIdentity(config,claims,10000);expect(verifyWidgetToken(config,token,claims.appId,claims.origin,11000)).toMatchObject(claims);expect(()=>verifyWidgetToken(config,token,"app-two",claims.origin,11000)).toThrow();expect(()=>verifyWidgetToken(config,token,claims.appId,"https://evil.example",11000)).toThrow();expect(()=>verifyWidgetToken(config,token,claims.appId,claims.origin,910000)).toThrow();});
+it("rejects tampering and malformed tokens",()=>{const token=issueWidgetIdentity(config,claims);const [payload,signature]=token.split('.');const forged=Buffer.from(JSON.stringify({...claims,customerId:"victim"})).toString('base64url');for(const bad of [`${forged}.${signature}`,`${payload}.bad`,`${token}.extra`,"x".repeat(5000)])expect(()=>verifyWidgetToken(config,bad,claims.appId,claims.origin)).toThrow();});
+it("stores only hashes of generated server credentials",()=>{const key=newApplicationKey();expect(key).toMatch(/^talo_sk_[A-Za-z0-9_-]{43}$/);expect(matchesKey(key,hash(key))).toBe(true);expect(matchesKey(newApplicationKey(),hash(key))).toBe(false);});
+it("accepts only bounded account facts and no action instructions",()=>{expect(accountFacts.safeParse({plan:"Pro",subscriptionStatus:"active"}).success).toBe(true);expect(accountFacts.safeParse({secret:"private"}).success).toBe(false);expect(accountFacts.safeParse({accountStatus:"grant-access-now"}).success).toBe(false);});
+
+import { accountAnswer } from "../lib/widget/account-answer";
+it("answers simple private facts without model citation ambiguity",()=>{const identity=verifyWidgetToken(config,issueWidgetIdentity(config,claims),claims.appId,claims.origin);expect(accountAnswer("What plan is my account on?",identity)).toMatchObject({generation:"account",source:"plan: Pro"});expect(accountAnswer("What plan is my account on?",{...identity,verified:false})).toBeUndefined();expect(accountAnswer("Upgrade my plan",identity)).toBeUndefined();});
