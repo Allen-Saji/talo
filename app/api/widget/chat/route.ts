@@ -10,7 +10,7 @@ export const POST=widgetHandler(runtimeConfig,async(request,config,app)=>{
   const identity=await widgetIdentity(request,config,app.id);
   const input=await parseBody(request,chatInput,65536);
   if(input.remember&&!identity.verified)throw new ApiError(403,"IDENTITY_REQUIRED","Sign in to remember conversations across visits.");
-  if(!await reserveWidgetRequest(config,app.id))throw new ApiError(429,"RATE_LIMITED","This application's daily support limit has been reached. Please contact the team.");
+  if(!await reserveWidgetRequest(config,app.id))throw new ApiError(429,"RATE_LIMITED","Support is temporarily unavailable. Please try again later.");
   const history=await conversationHistory(config,identity,input.remember);
   const knowledge=app.documentation;
   const direct=accountAnswer(input.message,identity);
@@ -19,7 +19,7 @@ export const POST=widgetHandler(runtimeConfig,async(request,config,app)=>{
     try { answer=await generateDocumentationAnswer(config,knowledge,{...input,history}); } catch { /* Use the scoped excerpt fallback. */ }
   }
   const needsHuman=answer.generation==="unavailable";
-  await recordConversation(config,identity,input.message,answer.answer,input.remember,needsHuman);
-  return json({...answer,conversationId:identity.conversationId,needsHuman,verified:identity.verified});
+  const recorded=await recordConversation(config,identity,input.message,answer.answer,input.remember,needsHuman);
+  return json({...answer,conversationId:identity.conversationId,needsHuman,verified:identity.verified,revision:recorded.updatedAt.toISOString()});
 });
 export const OPTIONS=POST;

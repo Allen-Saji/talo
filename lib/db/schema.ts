@@ -98,6 +98,8 @@ export const conversations = pgTable("conversations", {
   id: text().primaryKey(), appId: text().notNull().references(() => applications.id),
   customerId: text().notNull(), verified: boolean().notNull(),
   messages: jsonb().notNull(), status: text().notNull().default("open"),
+  customerOutcome: text(),
+  outcomeAt: timestamp({ withTimezone: true }),
   expiresAt: timestamp({ withTimezone: true }).notNull(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
