@@ -5,14 +5,14 @@ checks current facts, and prepares a useful handoff when an issue remains open.
 
 The homepage introduces Talo. `/dashboard` lets verified users create one
 application per personal workspace, register up to five exact website origins,
-and save up to 5,000 characters of support documentation. Each application gets
+and save up to 50,000 characters of support documentation. Each application gets
 a stable public ID. Settings are private, scoped by server-derived identity, and
 protected against stale concurrent edits.
 
 The embeddable widget is available at `/widget.js`. Enable it explicitly in the
 dashboard to publish support content, then copy the generated script tag into
 an allowed website. Answers use that application's documentation with an exact
-source excerpt. API and agent setup examples remain planned interfaces.
+source excerpt. The server session API and agent setup guide cover verified customer identity.
 
 `/playground` contains the existing support demonstration with Neon case storage,
 Walrus memory, and optional OpenAI `gpt-6-luna` answers. It checks a historical
@@ -431,9 +431,9 @@ when generation is available.
 The script uses a shadow root for style isolation and renders responses with
 `textContent`, never response HTML. No secret key or Talo session cookie is
 sent from the host page. Read `/docs/widget` for CSP and integration details.
-The last three exchanges remain in tab memory and can accompany a follow-up;
-New conversation or refresh clears them. Persistent customer memory and private
-account data are not connected to this anonymous widget.
+Anonymous widget sessions stay in the open tab. Verified backend-issued sessions
+support opt-in last-three-exchange memory across visits and read-only account facts.
+Conversation history is loaded from server records, not browser-supplied history.
 
 The public endpoint checks the saved app ID, enabled state, and exact Origin
 on each request, including preflight. Each app has a 100-request UTC-day cap.
@@ -448,3 +448,51 @@ public app ID to ignored `.wrangler/widget-check-result.json`.
 Serve `examples/widget-host` on port5178 and open `/?appId=<public-app-id>` to
 verify installation on a separate origin. The sample host is a test fixture,
 not a replacement for the product homepage. Apply migration0007 before use.
+
+## Customer identity, memory, and team inbox
+
+Generate a server key in `/dashboard`. Keys are shown once and stored as hashes;
+rotation invalidates the previous key and verified widget sessions. Your backend
+must authenticate the customer itself, then call `POST /api/server/sessions`
+without an Origin header and with `Authorization: Bearer <server-key>`.
+Provide the public app ID, trusted customer ID, registered origin, and optional
+allowed account facts. Tokens last 15 minutes, are scoped to app/customer/origin,
+and contain readable facts: never put secrets in them.
+
+Use `window.Talo.identify(token)` after `talo:ready` and clear identity on logout.
+The examples in `/docs/server` and `examples/server-integration.mjs` show the
+contract. `/llms.txt` is an agent-readable setup brief; `/openapi.json` describes
+the server endpoint. Neither substitutes for the host application's authentication.
+
+Verified users can remember their last three exchanges for 30 days. Widget memory
+uses scoped Neon records; it is separate from the playground's Walrus jobs.
+Forget clears saved context. Support conversation records have their own 30-day
+expiry and remain visible to the owning application through `/inbox`. Customers
+can request a handoff and check for a team reply. Operators can reply and resolve
+threads. No email/Slack delivery or proactive notification is implemented.
+
+The existing scheduled Worker purges expired widget memory and conversation rows
+hourly in batches of500; reads reject expired rows immediately. Private account
+facts are read-only snapshots supplied by the backend (plan, subscriptionStatus,
+accountStatus, supportEmail), not actions or direct billing-provider connectors.
+
+Verification: `pnpm exec tsx scripts/check-customer-continuity.ts` uses the isolated
+Neon database; `pnpm exec tsx scripts/check-customer-http.ts` uses existing synthetic
+accounts against localhost5175. It generates/rotates only the synthetic application's
+server key and stores it in ignored `.wrangler/widget-identity-check.json` for the
+local backend fixture. Use `TALO_LOCAL_URL` only for the explicitly allowed public
+Worker URL when testing deployment. Apply migration0008 before deploying this code.
+
+### Set up with a coding agent
+
+After creating and enabling an application, choose **Copy agent setup** in the dashboard. The copied prompt links to `/agent/setup?appId=...`, a public Markdown runbook containing the public application ID and implementation/verification steps. Backend credentials stay in the host environment, never in the link. `/docs/agent` explains the flow. The downloadable `/integrations/check.mjs` checks widget configuration and optionally one explicit synthetic server session; it does not install code or prove host authentication.
+
+### Knowledge imports and safety
+
+The dashboard accepts pasted text, one public HTTPS page at a time, and PDF/Markdown/text documents. Files are limited to 2 MB; PDFs to 25 pages. PDF.js extracts text in the browser without a viewer, scripting layer, or rendering. Original files are not uploaded or retained. Only extracted text is sent for checks. Scanned PDFs/OCR, Word files, login-protected pages, query-string URLs and automatic whole-site crawling are not supported. Knowledge is capped at 50,000 characters; models receive up to 8,000 characters of ranked passages.
+
+Imports require a verified account and same-origin requests, with 30 import/check requests per account per UTC day. Review and edit extracted text before adding it to the application draft. Saving applies the same content checks server-side, including when called outside the dashboard. Known instruction-override patterns, credentials, control characters, active markup and long encoded payloads are blocked. Detection is heuristic, not proof that a document is safe. Owners must still review accuracy and private information.
+
+Website fetching runs in the service-binding-only `talo-knowledge-import` Worker with no secrets, storage or private-network bindings. It rejects IP-literal/private/reserved DNS destinations, credential-bearing URLs, custom ports and redirects; it forwards no authentication or cookies, executes no JavaScript, and bounds fetch time and response size. DNS validation is not DNS pinning; the separate Worker and its lack of private access are part of the isolation boundary. Do not add private-network bindings or secrets to that Worker. Deploy it with `wrangler deploy --config wrangler.knowledge-import.jsonc` before deploying the main app that binds it.
+
+The embedded documentation model has no tools and may only select an exact passage from the approved reference text. Free-form model prose is discarded. Verified account answers are resolved separately and account facts are not mixed into document prompts. This limits prompt-injection impact; it does not guarantee that every misleading or malicious passage is detected. Extracted sources are displayed as text, never executed HTML.

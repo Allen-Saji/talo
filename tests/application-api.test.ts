@@ -11,5 +11,5 @@ it("rejects unauthenticated reads and writes",async()=>{ mocks.session.mockResol
 it("rejects unverified users",async()=>{mocks.session.mockResolvedValue({id:"unverified",emailVerified:false});expect((await PUT(request(input))).status).toBe(403);expect(mocks.workspace).not.toHaveBeenCalled();});
 it("rejects cross-origin writes before authentication",async()=>{expect((await PUT(request(input,"https://evil.example"))).status).toBe(403);expect(mocks.session).not.toHaveBeenCalled();});
 it("rejects ownership injection",async()=>{expect((await PUT(request({...input,tenantId:"victim"}))).status).toBe(400);expect(mocks.save).not.toHaveBeenCalled();});
-it("accepts full-length Unicode documentation within the route limit",async()=>{mocks.save.mockResolvedValue({id:"app-test"});expect((await PUT(request({...input,documentation:"文".repeat(5000)}))).status).toBe(200);expect(mocks.save).toHaveBeenCalledOnce();});
-it("enforces a byte limit on oversized input",async()=>{expect((await PUT(request({...input,documentation:"x".repeat(33000)}))).status).toBe(413);expect(mocks.save).not.toHaveBeenCalled();});
+it("accepts full-length Unicode documentation within the route limit",async()=>{mocks.save.mockResolvedValue({id:"app-test"});expect((await PUT(request({...input,documentation:"文".repeat(50000)}))).status).toBe(200);expect(mocks.save).toHaveBeenCalledOnce();});
+it("enforces a byte limit on oversized input",async()=>{expect((await PUT(request({...input,documentation:"x".repeat(240001)}))).status).toBe(413);expect(mocks.save).not.toHaveBeenCalled();});
