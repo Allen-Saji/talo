@@ -1,0 +1,1 @@
+ALTER TABLE "applications" ADD COLUMN "widgetEnabled" boolean DEFAULT false NOT NULL;

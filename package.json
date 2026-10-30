@@ -62,7 +62,8 @@
     "check:lessons": "tsx scripts/check-memory-lessons.ts",
     "check:auth:mail": "tsx scripts/check-auth-mail.ts",
     "check:applications": "tsx scripts/check-applications.ts",
-    "check:onboarding": "tsx scripts/check-onboarding-http.ts"
+    "check:onboarding": "tsx scripts/check-onboarding-http.ts",
+    "check:widget": "tsx scripts/check-widget-http.ts"
   },
   "engines": {
     "node": ">=24.22.1 <25"

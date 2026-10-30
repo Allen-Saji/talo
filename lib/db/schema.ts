@@ -8,6 +8,7 @@ export const applications = pgTable("applications", {
   name: text().notNull(),
   origins: text().array().notNull(),
   documentation: text().notNull(),
+  widgetEnabled: boolean().notNull().default(false),
   revision: integer().notNull().default(1),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

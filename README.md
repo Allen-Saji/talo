@@ -9,8 +9,10 @@ and save up to 5,000 characters of support documentation. Each application gets
 a stable public ID. Settings are private, scoped by server-derived identity, and
 protected against stale concurrent edits.
 
-The embeddable widget and documentation retrieval are not yet implemented.
-The homepage integration snippets describe the proposed interface.
+The embeddable widget is available at `/widget.js`. Enable it explicitly in the
+dashboard to publish support content, then copy the generated script tag into
+an allowed website. Answers use that application's documentation with an exact
+source excerpt. API and agent setup examples remain planned interfaces.
 
 `/playground` contains the existing support demonstration with Neon case storage,
 Walrus memory, and optional OpenAI `gpt-6-luna` answers. It checks a historical
@@ -412,6 +414,37 @@ local server at port 5175 using existing synthetic accounts in the ignored
 The local HTTP test saves a synthetic application in that test account.
 
 Apply migrations with `pnpm db:migrate` before running the new dashboard.
-Application origins are stored configuration for the future widget; they do not
-grant access or currently enforce a widget boundary. Documentation is stored as
-plain text and is not fetched from arbitrary URLs or sent to model providers.
+Application origins enforce browser embedding checks, not customer authentication.
+Non-browser callers can forge Origin, so enabling the widget publishes the
+support documentation for public answers. Drafts remain unavailable to the widget.
+Documentation is stored as plain text; no arbitrary URLs are fetched. Published
+documentation, questions, and recent conversation history are sent to OpenAI
+when generation is available.
+
+## Embedded widget
+
+1. Register the exact website origin in `/dashboard`.
+2. Add customer-facing support content and explicitly enable the widget.
+3. Copy the embed snippet from the dashboard into the website before `</body>`.
+4. Open the widget and ask a question covered by the guide.
+
+The script uses a shadow root for style isolation and renders responses with
+`textContent`, never response HTML. No secret key or Talo session cookie is
+sent from the host page. Read `/docs/widget` for CSP and integration details.
+The last three exchanges remain in tab memory and can accompany a follow-up;
+New conversation or refresh clears them. Persistent customer memory and private
+account data are not connected to this anonymous widget.
+
+The public endpoint checks the saved app ID, enabled state, and exact Origin
+on each request, including preflight. Each app has a 100-request UTC-day cap.
+Model attempts share the existing global 20/day cap. Failures and exhausted
+model capacity fall back to a matching documentation excerpt, not a fabricated
+AI response. Origin checks are not proof of customer identity.
+
+Run `pnpm check:widget` against local port5175 using the existing synthetic auth
+account. This test publishes synthetic content only, restricts it to
+`http://127.0.0.1:5178`, verifies responses and disable/re-enable, and saves the
+public app ID to ignored `.wrangler/widget-check-result.json`.
+Serve `examples/widget-host` on port5178 and open `/?appId=<public-app-id>` to
+verify installation on a separate origin. The sample host is a test fixture,
+not a replacement for the product homepage. Apply migration0007 before use.
